@@ -1,0 +1,156 @@
+# Drum Hero
+
+A rhythm game for electronic drum kits. Notes fall toward a hit line, you
+play along on a real kit over Web MIDI, and you get per-note hit / early /
+late / miss feedback.
+
+The point of difference versus subscription apps like Melodics is that you
+bring your own charts: import any MIDI or MusicXML file instead of renting
+a locked song library.
+
+Status: **Phase 0** — a browser-only prototype, but a complete and playable
+one. Phase 1 is wrapping this same TypeScript in Tauri for a desktop build;
+Phase 2 (optional) is a Capacitor mobile wrapper, where MIDI I/O would become
+a native plugin.
+
+## Running it
+
+```bash
+npm install
+npm run dev
+```
+
+Then open the printed URL. **Use a Chromium-based browser** — Web MIDI isn't
+supported in Safari and is gated in Firefox.
+
+No kit attached? The keyboard stands in:
+
+| Key | | Key | |
+|---|---|---|---|
+| `A` | kick | `H` | tom 2 |
+| `S` | snare | `J` | floor tom |
+| `D` | hi-hat (closed) | `K` | crash |
+| `E` | hi-hat (half-open) | `L` | ride |
+| `F` | hi-hat (open) | | |
+| `W` | hi-hat (foot chick) | | |
+| `G` | tom 1 | | |
+
+Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
+
+## Scripts
+
+| Command | Does |
+|---|---|
+| `npm run dev` | Vite dev server |
+| `npm run build` | Typecheck, then production build |
+| `npm test` | Run the unit tests once |
+| `npm run test:watch` | Watch mode |
+| `npm run samples` | Rebuild the drum samples from upstream (see below) |
+
+## What it does
+
+- **Import your own charts.** `.mid` / `.midi`, and uncompressed `.musicxml`
+  / `.xml`. Compressed `.mxl` (MuseScore and Finale's default) is *not*
+  supported — export uncompressed.
+- **Song library.** Imports are saved to `localStorage` and reachable from
+  the Songs panel, so you only pick a file once.
+- **Practice looping.** Mark a bar range — either with the sliders or by
+  dragging the ends of the track overview — and loop it. "No break" mode
+  scrolls the next repetition into view before the current one ends, so the
+  groove never visually resets.
+- **Tempo control.** Slow a section down to learn it; the count-in scales
+  with it, because a count-in's job is to establish the tempo you're about
+  to play at.
+- **Play the UI from the kit.** Every menu is reachable from the pads
+  (crash = up, kick = down, tom 1 = left, tom 2 = right, floor tom = enter,
+  ride = back), so you never have to put the sticks down. Destructive
+  actions like deleting a song are deliberately mouse-only.
+- **Two ways to pause without a mouse:** assign an unused pad as a dedicated
+  pause pad, or just stop playing — it auto-pauses after a few bars of
+  silence, but only when the chart actually expects notes, so a genuine rest
+  won't trigger it.
+- **Metronome and audible count-in**, both optional.
+- **Use your kit's own sounds.** Settings → Pad sounds → Off silences the
+  app's drum sounds while keeping the count-in and metronome. Feed the app's
+  audio into your module's aux-in and you get the click track over your
+  kit's own voices, with no doubled drums.
+
+## How it's put together
+
+The load-bearing decision: **MIDI and MusicXML are storage formats only.**
+Each importer resolves its own tick/measure/tempo weirdness into a
+normalized `Chart` — a flat list of notes at absolute milliseconds — once,
+at load time. Nothing downstream knows or cares where a chart came from.
+
+That keeps the real-time loop trivial (compare two numbers) instead of
+re-deriving positions from a tempo map every frame, and it means a future
+importer bolts on without touching gameplay code.
+
+```
+src/
+  engine/     Chart format, playback clock, scoring, lane/articulation maps
+  import/     MIDI and MusicXML -> Chart
+  render/     Canvas falling-notes renderer
+  audio/      Sampled kit (DrumSampler) + synthesized fallback (DrumSynth)
+  midi/       Web MIDI behind a MidiSource interface
+  storage/    localStorage song library
+  main.ts     DOM wiring, menus, game loop
+```
+
+Two conventions worth knowing before editing:
+
+- **Menu arrays must match on-screen order.** Drum-pad navigation walks them
+  by index, so an out-of-order array makes left/right feel backwards.
+- **Articulation is not Lane.** A hi-hat makes four different sounds
+  (closed, half-open, open, foot chick) but the chart deliberately shows
+  only two rows. Articulation drives *sound*; `Lane` drives *visuals and
+  scoring*. A unit test enforces that articulations only ever annotate MIDI
+  notes the lane map already recognizes.
+
+### Testing
+
+Pure logic — the engine, importers, and storage — is unit tested
+(`npm test`). Canvas drawing, Web Audio, MIDI I/O, and the DOM wiring in
+`main.ts` deliberately are not: mocking them well costs more than it catches
+at this stage, so those are verified by hand in the browser.
+
+## Drum samples
+
+`public/samples/muldjord/` holds one-shots from **MuldjordKit**, an acoustic
+kit recorded by **Lars Muldjord**, in the FreePats stereo edition.
+
+**Licensed CC-BY 4.0 — attribution is required if you distribute this.**
+See [`public/samples/README.md`](public/samples/README.md) for the full
+notice and the list of modifications.
+
+Four velocity layers per drum ship in the repo, so a clone works offline
+with no extra setup. To re-derive them from upstream:
+
+```bash
+npm run samples            # rebuild in place
+npm run samples -- --check # verify the committed set still reproduces exactly
+```
+
+That script (`tools/extract-samples.mjs`) downloads the upstream release,
+picks evenly spaced velocity layers, and converts FLAC to WAV. It's macOS-only
+as written — it uses `afconvert`, and relies on the system `tar` reading
+`.7z`; the header comments give the Linux equivalents. Editing the
+`LANE_SOURCES` map there re-voices the kit, since the source has more drums
+than the game uses (two kicks, four toms, two crashes, two rides, a china).
+
+The kit only ever recorded **closed** and **open** hi-hats. Half-open and
+foot-chick are derived from those by envelope shaping — holding the sample's
+natural decay, then choking it, plus a low-pass and softened attack for the
+chick. It's a reasonable approximation, not a real recording; a kit that
+sampled all four (DrumGizmo's CrocellKit or DRSKit, both also CC-BY) is the
+upgrade path if it ever matters enough.
+
+## Known gaps
+
+- Mid-song tempo changes aren't followed — only the first tempo marking is
+  read. This is the big one; it needs a real tempo map threaded through
+  scoring, rendering, the count-in, the metronome, and the loop bar math.
+- No de-duplication on import: importing the same file twice creates two
+  library entries.
+- No song audio playback yet. Playing along to the actual recording needs a
+  real `AudioClock` (currently a stub) plus latency calibration.
