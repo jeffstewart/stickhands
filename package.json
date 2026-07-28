@@ -1,0 +1,22 @@
+{
+  "name": "drummingapp",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@tonejs/midi": "^2.0.28",
+    "fast-xml-parser": "^5.10.1"
+  }
+}

@@ -1,0 +1,132 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #0a0b0e;
+  color: #e0e0e0;
+  display: flex;
+  justify-content: center;
+}
+
+#app {
+  padding: 24px;
+  text-align: center;
+}
+
+canvas {
+  background: #111318;
+  border: 1px solid #2a2d36;
+  max-width: 100%;
+}
+
+#canvas-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+#countdown-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 96px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 24px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+}
+
+#countdown-overlay.visible {
+  opacity: 1;
+}
+
+#countdown-overlay.finished-message {
+  font-size: 28px;
+  text-align: center;
+  padding: 0 32px;
+  background: rgba(10, 11, 14, 0.75);
+}
+
+#countdown-overlay .nav-hint {
+  font-size: 16px;
+  font-weight: normal;
+  opacity: 0.8;
+  margin-top: 12px;
+}
+
+.nav-focused {
+  outline: 3px solid #3ddc84;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.panel {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 12px 16px;
+  max-width: 90vw;
+  border: 1px solid #2a2d36;
+  border-radius: 8px;
+  background: #15171d;
+}
+
+.hidden {
+  display: none;
+}
+
+/* .panel's own display:inline-flex outweighs .hidden on specificity alone,
+   so this override is needed to actually hide it. */
+.panel.hidden {
+  display: none;
+}
+
+.panel .hint-inline {
+  color: #8a8f9c;
+  font-size: 13px;
+}
+
+#library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.song-item {
+  text-align: left;
+}
+
+.song-row {
+  display: flex;
+  gap: 6px;
+}
+
+.song-row .song-item {
+  flex: 1;
+}
+
+.song-delete {
+  color: #ff6b6b;
+  flex-shrink: 0;
+}
+
+.song-delete.armed {
+  background: #ff6b6b;
+  color: #15171d;
+  font-weight: bold;
+}
+
+.loop-overview {
+  flex-basis: 100%; /* its own full-width row above the range sliders */
+}

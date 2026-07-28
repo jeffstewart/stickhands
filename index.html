@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Drum Hero (prototype)</title>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Drum Hero — Phase 0 prototype</h1>
+      <p id="status">Loading demo chart&hellip;</p>
+      <button id="restart" type="button">Restart track</button>
+      <button id="pause" type="button">Pause</button>
+      <button id="open-settings" type="button">Settings</button>
+      <button id="open-loop" type="button">Loop</button>
+      <button id="open-library" type="button">Songs</button>
+      <button id="load-midi" type="button">Load MIDI/MusicXML file&hellip;</button>
+      <input type="file" id="midi-file-input" accept=".mid,.midi,.musicxml,.xml" class="hidden" />
+      <p id="import-status" class="hint"></p>
+      <p id="midi-status">MIDI not connected</p>
+      <div id="settings-panel" class="panel hidden">
+        <label for="difficulty">Timing window:</label>
+        <select id="difficulty">
+          <option value="tight">Tight</option>
+          <option value="normal" selected>Normal</option>
+          <option value="relaxed">Relaxed</option>
+        </select>
+        <label for="tempo">Tempo:</label>
+        <input type="range" id="tempo" min="50" max="150" step="5" value="100" />
+        <span id="tempo-value">100 BPM</span>
+        <span id="tempo-default" class="hint-inline"></span>
+        <button id="reset-tempo" type="button">Reset</button>
+        <label for="pause-pad">Pause pad:</label>
+        <select id="pause-pad"></select>
+        <label for="metronome-toggle">Metronome:</label>
+        <select id="metronome-toggle">
+          <option value="off" selected>Off</option>
+          <option value="on">On</option>
+        </select>
+        <label for="pad-sound-toggle">Pad sounds:</label>
+        <select id="pad-sound-toggle">
+          <option value="on" selected>On</option>
+          <option value="off">Off &mdash; use my kit's own sounds</option>
+        </select>
+        <button id="connect-midi" type="button">Connect MIDI</button>
+        <button id="close-settings" type="button">Back</button>
+      </div>
+      <div id="loop-panel" class="panel hidden">
+        <canvas id="loop-overview" width="640" height="90" class="loop-overview"></canvas>
+        <label for="loop-start">Loop start:</label>
+        <input type="range" id="loop-start" min="0" max="1" step="1" value="0" />
+        <span id="loop-start-value">Bar 1</span>
+        <label for="loop-end">Loop end:</label>
+        <input type="range" id="loop-end" min="1" max="1" step="1" value="1" />
+        <span id="loop-end-value">Bar 1</span>
+        <label for="loop-break">Between reps:</label>
+        <select id="loop-break">
+          <option value="break">With break</option>
+          <option value="none">No break</option>
+        </select>
+        <button id="start-loop" type="button">Start Loop</button>
+        <button id="exit-loop" type="button" class="hidden">Exit Loop</button>
+        <button id="close-loop" type="button">Back</button>
+        <p id="loop-error" class="hint-inline"></p>
+      </div>
+      <div id="library-panel" class="panel hidden">
+        <p class="hint">Previously imported songs. Enter (or click) loads one.</p>
+        <div id="library-list"></div>
+        <p id="library-empty" class="hint-inline">No saved songs yet — Load MIDI/MusicXML file&hellip; adds one here.</p>
+        <button id="close-library" type="button">Back</button>
+      </div>
+      <p id="stats">perfect: 0 | early: 0 | late: 0 | miss: 0 | extra: 0</p>
+      <p class="hint">
+        No kit handy? Keys A S D F G H J K L = kick/snare/hihat/hihatOpen/tom1/tom2/tomFloor/crash/ride &middot;
+        W = hi-hat foot, E = hi-hat half-open &middot; hold Shift for a harder hit
+      </p>
+      <div id="canvas-wrap">
+        <canvas id="chart-canvas" width="900" height="500"></canvas>
+        <div id="countdown-overlay"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

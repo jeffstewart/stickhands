@@ -1,0 +1,50 @@
+import type { Lane } from "./lanes";
+
+// A single note in the normalized, playback-ready chart. All timing is already
+// resolved to absolute milliseconds from the start of the track — no ticks,
+// no measures, no tempo maps. That resolution work happens once, in the
+// importer, not on every scheduler tick.
+export interface ChartNote {
+  timeMs: number;
+  lane: Lane;
+  durationMs?: number; // present for sustained hits (e.g. open hi-hat); absent for one-shots
+  velocity: number; // 0-127, informational (source dynamics), not used for hit/miss judging
+}
+
+export interface Chart {
+  title: string;
+  sourceFormat: "midi" | "musicxml" | "manual";
+  bpm: number; // the track's native/authored tempo — the "default" a tempo slider should reset to
+  durationMs: number;
+  notes: ChartNote[]; // must be sorted ascending by timeMs
+  // Absent means "unknown" — consumers should assume 4/4, same as every
+  // chart was treated before this field existed. beatUnit is the notated
+  // beat's note value (4 = quarter note, 8 = eighth note, ...), matching a
+  // time signature's denominator.
+  timeSignature?: { beatsPerBar: number; beatUnit: number };
+}
+
+export function sortChart(chart: Chart): Chart {
+  return { ...chart, notes: [...chart.notes].sort((a, b) => a.timeMs - b.timeMs) };
+}
+
+// Produces a standalone, independently-playable Chart covering just
+// [startMs, endMs) of the source — notes are filtered to that window and
+// rebased so the slice starts at time 0, exactly like a freshly-loaded
+// chart. This is the whole trick behind practice looping: a loop is just
+// "load this smaller chart," reusing every bit of existing restart/scoring
+// machinery instead of teaching the scoring engine a new concept of
+// repeating/wrapping playback.
+export function sliceChart(chart: Chart, startMs: number, endMs: number): Chart {
+  const notes = chart.notes
+    .filter((n) => n.timeMs >= startMs && n.timeMs < endMs)
+    .map((n) => ({ ...n, timeMs: n.timeMs - startMs }));
+  return {
+    title: `${chart.title} (loop)`,
+    sourceFormat: chart.sourceFormat,
+    bpm: chart.bpm,
+    durationMs: endMs - startMs,
+    notes,
+    timeSignature: chart.timeSignature, // a loop is still in the same meter as its source
+  };
+}
