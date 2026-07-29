@@ -152,6 +152,15 @@ canvas {
   color: #3ddc84;
 }
 
+/* Forces its own flex line so the trend sits above the per-run list rather
+   than floating beside it — the canvas alone can't do that, since its
+   max-width would leave room for the list to share the row. */
+.scores-graph-row {
+  flex-basis: 100%;
+  display: flex;
+  justify-content: center;
+}
+
 #scores-list {
   display: flex;
   flex-direction: column;

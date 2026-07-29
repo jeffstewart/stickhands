@@ -64,6 +64,7 @@ const libraryEmpty = document.querySelector<HTMLParagraphElement>("#library-empt
 const openScoresButton = document.querySelector<HTMLButtonElement>("#open-scores")!;
 const closeScoresButton = document.querySelector<HTMLButtonElement>("#close-scores")!;
 const scoresPanel = document.querySelector<HTMLDivElement>("#scores-panel")!;
+const scoresGraph = document.querySelector<HTMLCanvasElement>("#scores-graph")!;
 const scoresList = document.querySelector<HTMLDivElement>("#scores-list")!;
 const scoresEmpty = document.querySelector<HTMLParagraphElement>("#scores-empty")!;
 
@@ -437,8 +438,96 @@ function closeLibrary(): void {
 // Past runs of whichever track is loaded. Opt-in on its own screen so the
 // finish overlay stays a single glanceable line — the point of this feature
 // is quantifying progress, not interrupting practice to admire it.
+// Distinct enough to tell tempo series apart, and deliberately not the
+// judgment palette — a dot here means "a run at this tempo", not "a perfect
+// hit". Assigned by ascending tempo so a given speed keeps its colour
+// between openings.
+const TREND_COLORS = ["#4da3ff", "#3ddc84", "#ffb347", "#c792ea", "#ff6b6b", "#8a8f9c"];
+
+// Score trend for the loaded track, oldest run on the left. Runs are joined
+// into a line only within the same tempo: connecting a half-speed run to a
+// full-speed one would draw a "decline" that's really just a harder attempt,
+// the same trap bestScore()'s bpm filter avoids. Practising at one speed
+// gives one line; ramping the tempo up gives a line per speed.
+function drawScoresGraph(): void {
+  const ctx = scoresGraph.getContext("2d");
+  if (!ctx) return;
+  const attempts = listAttempts(localStorage, chartKey(fullChart)).reverse(); // oldest first
+  // A trend needs two points; a single dot says nothing its list row doesn't.
+  scoresGraph.classList.toggle("hidden", attempts.length < 2);
+  if (attempts.length < 2) return;
+
+  const { width, height } = scoresGraph;
+  const padL = 34, padR = 10, padT = 12, padB = 22;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  const xAt = (i: number) => padL + (i / (attempts.length - 1)) * plotW;
+  const yAt = (pct: number) => padT + (1 - pct / 100) * plotH;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#0a0b0e";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = "#2a2d36";
+  ctx.lineWidth = 1;
+  ctx.font = "10px sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (const pct of [0, 25, 50, 75, 100]) {
+    const y = yAt(pct);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(width - padR, y);
+    ctx.stroke();
+    if (pct % 50 === 0) {
+      ctx.fillStyle = "#8a8f9c";
+      ctx.fillText(`${pct}%`, padL - 5, y);
+    }
+  }
+
+  const tempos = [...new Set(attempts.map((a) => a.bpm))].sort((a, b) => a - b);
+  tempos.forEach((bpm, ti) => {
+    const color = TREND_COLORS[ti % TREND_COLORS.length];
+    const pts = attempts
+      .map((a, i) => ({ i, a }))
+      .filter((e) => e.a.bpm === bpm)
+      .map((e) => ({ x: xAt(e.i), y: yAt(e.a.scorePct) }));
+    if (pts.length > 1) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      pts.forEach((pt, k) => (k === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+      ctx.stroke();
+    }
+    ctx.fillStyle = color;
+    for (const pt of pts) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#8a8f9c";
+  ctx.fillText("older \u2192 newer", padL, height - 6);
+
+  ctx.textAlign = "right";
+  let legendX = width - padR;
+  for (let ti = tempos.length - 1; ti >= 0; ti--) {
+    const label = `${tempos[ti]} BPM`;
+    ctx.fillStyle = "#8a8f9c";
+    ctx.fillText(label, legendX, height - 6);
+    const labelW = ctx.measureText(label).width;
+    ctx.fillStyle = TREND_COLORS[ti % TREND_COLORS.length];
+    ctx.fillRect(legendX - labelW - 12, height - 15, 8, 8);
+    legendX -= labelW + 22;
+  }
+}
+
 function renderScoresList(): void {
   scoresList.innerHTML = "";
+  drawScoresGraph();
   const attempts = listAttempts(localStorage, chartKey(fullChart));
   scoresEmpty.classList.toggle("hidden", attempts.length > 0);
   const best = attempts.length > 0 ? Math.max(...attempts.map((a) => a.scorePct)) : null;

@@ -73,7 +73,9 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
 - **Scoring and history.** Finishing a track shows a percent score inline on
   the completion overlay — no banner, no animation, nothing to dismiss, so a
   restart is always one press away. Past runs live on their own Scores
-  screen, recorded per tempo so a slow run never masquerades as a fast one.
+  screen, with a trend graph, recorded per tempo so a slow run never
+  masquerades as a fast one — and the graph only joins runs at the *same*
+  tempo, so speeding up doesn't look like a collapse.
 - **Use your kit's own sounds.** Settings → Pad sounds → Off silences the
   app's drum sounds while keeping the count-in and metronome. Feed the app's
   audio into your module's aux-in and you get the click track over your
