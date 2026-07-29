@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ScoringEngine, HIT_WINDOW_PRESETS, type HitWindows } from "./scoring";
+import { ScoringEngine, scorePercent, HIT_WINDOW_PRESETS, type HitWindows, type ScoreStats } from "./scoring";
 import type { Chart, ChartNote } from "./chart";
 import type { Clock } from "./clock";
 import type { Lane } from "./lanes";
@@ -267,5 +267,44 @@ describe("ScoringEngine", () => {
       const outcome = engine.handleMidiNote(hit(36, 1200), IDENTITY_CLOCK); // 200ms late, outside okMs(50)
       expect(outcome).toEqual({ lane: "kick", judgment: "extra", nearestDeltaMs: 200 });
     });
+  });
+});
+
+describe("scorePercent", () => {
+  const stats = (o: Partial<ScoreStats> = {}): ScoreStats => ({
+    perfect: 0, early: 0, late: 0, miss: 0, extra: 0, ...o,
+  });
+
+  it("gives 100% when every note is perfect", () => {
+    expect(scorePercent(stats({ perfect: 10 }), 10)).toBe(100);
+  });
+
+  it("gives 0% when every note is missed", () => {
+    expect(scorePercent(stats({ miss: 10 }), 10)).toBe(0);
+  });
+
+  it("counts an early or late hit as half a perfect one", () => {
+    expect(scorePercent(stats({ early: 10 }), 10)).toBe(50);
+    expect(scorePercent(stats({ late: 10 }), 10)).toBe(50);
+    expect(scorePercent(stats({ perfect: 5, late: 5 }), 10)).toBe(75);
+  });
+
+  // Extras are the noisiest stat (double-triggering pads, warm-up taps), so
+  // they must not drag the score down...
+  it("ignores extra hits entirely", () => {
+    expect(scorePercent(stats({ perfect: 10, extra: 50 }), 10)).toBe(100);
+  });
+
+  // ...but they also can't inflate it, since only charted notes earn credit.
+  it("cannot be inflated by flailing at pads the chart doesn't use", () => {
+    expect(scorePercent(stats({ perfect: 2, miss: 8, extra: 200 }), 10)).toBe(20);
+  });
+
+  it("reports one decimal place, so single-note gains are visible on long tracks", () => {
+    expect(scorePercent(stats({ perfect: 191, miss: 1 }), 192)).toBe(99.5);
+  });
+
+  it("returns 0 for an empty chart rather than dividing by zero", () => {
+    expect(scorePercent(stats(), 0)).toBe(0);
   });
 });

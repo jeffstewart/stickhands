@@ -70,6 +70,10 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
   silence, but only when the chart actually expects notes, so a genuine rest
   won't trigger it.
 - **Metronome and audible count-in**, both optional.
+- **Scoring and history.** Finishing a track shows a percent score inline on
+  the completion overlay — no banner, no animation, nothing to dismiss, so a
+  restart is always one press away. Past runs live on their own Scores
+  screen, recorded per tempo so a slow run never masquerades as a fast one.
 - **Use your kit's own sounds.** Settings → Pad sounds → Off silences the
   app's drum sounds while keeping the count-in and metronome. Feed the app's
   audio into your module's aux-in and you get the click track over your

@@ -210,3 +210,19 @@ export class ScoringEngine {
     }
   }
 }
+
+// Weighted timing accuracy for a completed run, 0-100 with one decimal.
+// A perfectly-timed note counts full, an early/late one counts half, a
+// missed note counts nothing — so tightening loose hits into the perfect
+// window visibly moves the number, which is the whole point of tracking it.
+//
+// "Extra" hits are deliberately NOT subtracted. They're the noisiest stat
+// (a double-triggering pad, a warm-up tap, a ghost note the chart doesn't
+// have) and docking points for them would punish hardware quirks as if they
+// were mistakes. Flailing can't inflate the score either, since only notes
+// the chart actually contains can earn credit.
+export function scorePercent(stats: ScoreStats, totalNotes: number): number {
+  if (totalNotes <= 0) return 0;
+  const credit = stats.perfect + (stats.early + stats.late) * 0.5;
+  return Math.round((credit / totalNotes) * 1000) / 10;
+}

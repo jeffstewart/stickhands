@@ -15,6 +15,7 @@
       <button id="open-settings" type="button">Settings</button>
       <button id="open-loop" type="button">Loop</button>
       <button id="open-library" type="button">Songs</button>
+      <button id="open-scores" type="button">Scores</button>
       <button id="load-midi" type="button">Load MIDI/MusicXML file&hellip;</button>
       <input type="file" id="midi-file-input" accept=".mid,.midi,.musicxml,.xml" class="hidden" />
       <p id="import-status" class="hint"></p>
@@ -69,6 +70,12 @@
         <div id="library-list"></div>
         <p id="library-empty" class="hint-inline">No saved songs yet — Load MIDI/MusicXML file&hellip; adds one here.</p>
         <button id="close-library" type="button">Back</button>
+      </div>
+      <div id="scores-panel" class="panel hidden">
+        <p class="hint">Completed runs of this track, newest first. Only full run-throughs count &mdash; restarts and practice loops aren't recorded.</p>
+        <div id="scores-list"></div>
+        <p id="scores-empty" class="hint-inline">No completed runs yet. Play a track to the end to record one.</p>
+        <button id="close-scores" type="button">Back</button>
       </div>
       <p id="stats">perfect: 0 | early: 0 | late: 0 | miss: 0 | extra: 0</p>
       <p class="hint">

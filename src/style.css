@@ -130,3 +130,57 @@ canvas {
 .loop-overview {
   flex-basis: 100%; /* its own full-width row above the range sliders */
 }
+
+/* Score on the track-complete overlay. Deliberately just text that appears
+   with the existing overlay — no reveal animation, no dismiss step — so a
+   restart is never gated behind waiting for a celebration to finish. */
+#countdown-overlay .score {
+  display: block;
+  font-size: 44px;
+  font-weight: bold;
+  margin-top: 4px;
+}
+
+#countdown-overlay .score-compare {
+  font-size: 15px;
+  font-weight: normal;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+#countdown-overlay .score-best {
+  color: #3ddc84;
+}
+
+#scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 520px;
+  font-size: 13px;
+}
+
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #1b1e26;
+  text-align: left;
+}
+
+.score-row.is-best {
+  outline: 1px solid #3ddc84;
+}
+
+.score-row .score-pct {
+  font-weight: bold;
+  min-width: 58px;
+}
+
+.score-row .score-detail {
+  color: #8a8f9c;
+  flex: 1;
+}

@@ -5,12 +5,20 @@ import { PlaybackClock } from "./engine/clock";
 import { ChartRenderer, ExtraHitMarkers, LANE_LABEL, NoteJudgments } from "./render/renderer";
 import { WebMidiSource } from "./midi/WebMidiSource";
 import { DEFAULT_GM_ARTICULATION_MAP, DEFAULT_GM_DRUM_MAP, LANE_ORDER, type Articulation, type Lane } from "./engine/lanes";
-import { DEFAULT_HIT_WINDOWS, HIT_WINDOW_PRESETS, ScoringEngine, type HitOutcome, type HitWindowPreset } from "./engine/scoring";
+import {
+  DEFAULT_HIT_WINDOWS,
+  HIT_WINDOW_PRESETS,
+  ScoringEngine,
+  scorePercent,
+  type HitOutcome,
+  type HitWindowPreset,
+} from "./engine/scoring";
 import type { MidiNoteEvent } from "./midi/MidiSource";
 import { LANE_TO_NAV, type NavDirection } from "./engine/navigation";
 import { parseMidiFile } from "./import/midiImport";
 import { parseMusicXmlFile } from "./import/musicXmlImport";
 import { deleteSong, listSongs, saveSong } from "./storage/songLibrary";
+import { bestScore, chartKey, listAttempts, recordAttempt } from "./storage/scoreHistory";
 import { DrumSynth } from "./audio/DrumSynth";
 import { DrumSampler, type SampleKitSpec } from "./audio/DrumSampler";
 
@@ -53,6 +61,11 @@ const closeLibraryButton = document.querySelector<HTMLButtonElement>("#close-lib
 const libraryPanel = document.querySelector<HTMLDivElement>("#library-panel")!;
 const libraryList = document.querySelector<HTMLDivElement>("#library-list")!;
 const libraryEmpty = document.querySelector<HTMLParagraphElement>("#library-empty")!;
+const openScoresButton = document.querySelector<HTMLButtonElement>("#open-scores")!;
+const closeScoresButton = document.querySelector<HTMLButtonElement>("#close-scores")!;
+const scoresPanel = document.querySelector<HTMLDivElement>("#scores-panel")!;
+const scoresList = document.querySelector<HTMLDivElement>("#scores-list")!;
+const scoresEmpty = document.querySelector<HTMLParagraphElement>("#scores-empty")!;
 
 const clock = new PlaybackClock();
 const judgments = new NoteJudgments();
@@ -230,6 +243,7 @@ const FINISHED_MENU: HTMLButtonElement[] = [
   openSettingsButton,
   openLoopButton,
   openLibraryButton,
+  openScoresButton,
   loadMidiButton,
 ];
 const PAUSE_MENU: HTMLButtonElement[] = [
@@ -238,6 +252,7 @@ const PAUSE_MENU: HTMLButtonElement[] = [
   openSettingsButton,
   openLoopButton,
   openLibraryButton,
+  openScoresButton,
   loadMidiButton,
 ];
 const PAUSE_MENU_DEFAULT_INDEX = PAUSE_MENU.indexOf(pauseButton); // Enter still resumes immediately by default
@@ -264,6 +279,10 @@ const LOOP_MENU: MenuItem[] = [
 // can't be a fixed const array. Order matches the on-screen top-to-bottom
 // list order (up/down walks it, same as left/right walks the fixed menus).
 let libraryMenu: HTMLButtonElement[] = [];
+// The scores list is read-only — nothing in it is actionable — so unlike
+// the library this is just the Back button. Drum-nav still has somewhere
+// to land and a way out, which is what matters.
+const SCORES_MENU: MenuItem[] = [closeScoresButton];
 // Arms a song's delete button for a second confirming click (see
 // renderLibraryList) — an in-panel two-click confirm instead of a native
 // confirm() dialog, which is both visually inconsistent with this app's
@@ -271,7 +290,7 @@ let libraryMenu: HTMLButtonElement[] = [];
 // browser contexts by blocking the whole page.
 let pendingDeleteId: string | null = null;
 
-type MenuLevel = "main" | "settings" | "loop" | "library";
+type MenuLevel = "main" | "settings" | "loop" | "library" | "scores";
 let menuLevel: MenuLevel = "main";
 let menuFocusIndex = 0;
 
@@ -287,6 +306,8 @@ function currentMenu(): MenuItem[] {
         ? LOOP_MENU
         : menuLevel === "library"
           ? libraryMenu
+          : menuLevel === "scores"
+            ? SCORES_MENU
           : trackFinished
             ? FINISHED_MENU
             : PAUSE_MENU;
@@ -295,7 +316,7 @@ function currentMenu(): MenuItem[] {
 
 function updateMenuFocusUI(): void {
   const active = currentMenu();
-  [...FINISHED_MENU, ...PAUSE_MENU, ...SETTINGS_MENU, ...LOOP_MENU, ...libraryMenu].forEach((el) =>
+  [...FINISHED_MENU, ...PAUSE_MENU, ...SETTINGS_MENU, ...LOOP_MENU, ...libraryMenu, ...SCORES_MENU].forEach((el) =>
     el.classList.remove("nav-focused"),
   );
   if (menuActive()) active[menuFocusIndex]?.classList.add("nav-focused");
@@ -307,6 +328,7 @@ function hideAllPanels(): void {
   settingsPanel.classList.add("hidden");
   loopPanel.classList.add("hidden");
   libraryPanel.classList.add("hidden");
+  scoresPanel.classList.add("hidden");
 }
 
 function openSettings(): void {
@@ -412,6 +434,62 @@ function closeLibrary(): void {
   updateMenuFocusUI();
 }
 
+// Past runs of whichever track is loaded. Opt-in on its own screen so the
+// finish overlay stays a single glanceable line — the point of this feature
+// is quantifying progress, not interrupting practice to admire it.
+function renderScoresList(): void {
+  scoresList.innerHTML = "";
+  const attempts = listAttempts(localStorage, chartKey(fullChart));
+  scoresEmpty.classList.toggle("hidden", attempts.length > 0);
+  const best = attempts.length > 0 ? Math.max(...attempts.map((a) => a.scorePct)) : null;
+  let bestTagged = false;
+  for (const a of attempts) {
+    const row = document.createElement("div");
+    row.className = "score-row";
+    // Tag only the first occurrence, so repeating your best doesn't outline
+    // several rows and make "best" look ambiguous.
+    const isBest = !bestTagged && a.scorePct === best;
+    if (isBest) {
+      row.classList.add("is-best");
+      bestTagged = true;
+    }
+    const pct = document.createElement("span");
+    pct.className = "score-pct";
+    pct.textContent = `${a.scorePct}%`;
+    const detail = document.createElement("span");
+    detail.className = "score-detail";
+    detail.textContent =
+      `${a.bpm} BPM · ${a.perfect} perfect, ${a.early + a.late} off, ${a.miss} missed` +
+      (a.extra > 0 ? `, ${a.extra} extra` : "") +
+      (isBest ? " · best" : "");
+    const when = document.createElement("span");
+    when.textContent = new Date(a.atMs).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    row.append(pct, detail, when);
+    scoresList.appendChild(row);
+  }
+}
+
+function openScores(): void {
+  menuLevel = "scores";
+  menuFocusIndex = 0;
+  hideAllPanels();
+  scoresPanel.classList.remove("hidden");
+  renderScoresList();
+  updateMenuFocusUI();
+}
+
+function closeScores(): void {
+  menuLevel = "main";
+  menuFocusIndex = 0;
+  scoresPanel.classList.add("hidden");
+  updateMenuFocusUI();
+}
+
 function cycleSelect(select: HTMLSelectElement, direction: 1 | -1): void {
   select.selectedIndex = (select.selectedIndex + direction + select.options.length) % select.options.length;
   select.dispatchEvent(new Event("change"));
@@ -466,6 +544,7 @@ function handleNavDirection(dir: NavDirection): void {
       if (menuLevel === "settings") closeSettings();
       else if (menuLevel === "loop") closeLoopEditor();
       else if (menuLevel === "library") closeLibrary();
+      else if (menuLevel === "scores") closeScores();
       // else already at the main level: nothing to back out of
       break;
   }
@@ -779,9 +858,48 @@ function updateMetronomeAudio(nowMs: number): void {
   }
 }
 
+// Scores the finished run, files it in the history, and returns the one-line
+// comparison to show. Reads the previous best/last *before* recording, so
+// the run being reported isn't compared against itself.
+function recordFinishedRun(): { scorePct: number; compare: string; isBest: boolean } {
+  const chart = scoring.getChart();
+  const stats = scoring.getStats();
+  const bpm = Number(tempoSlider.value);
+  const key = chartKey(fullChart);
+  const scorePct = scorePercent(stats, chart.notes.length);
+
+  // Compared only against runs at this same tempo — a blistering run at half
+  // speed shouldn't set the bar for full speed.
+  const prevBest = bestScore(localStorage, key, bpm);
+  const prevLast = listAttempts(localStorage, key, bpm)[0]?.scorePct ?? null;
+  const isBest = prevBest === null || scorePct > prevBest;
+
+  recordAttempt(localStorage, key, {
+    atMs: Date.now(),
+    scorePct,
+    bpm,
+    ...stats,
+    totalNotes: chart.notes.length,
+  });
+
+  let compare: string;
+  if (prevBest === null) compare = `first run at ${bpm} BPM`;
+  else if (isBest) compare = `new best at ${bpm} BPM — was ${prevBest}%`;
+  else compare = `best ${prevBest}%${prevLast !== null ? ` · last ${prevLast}%` : ""} · ${bpm} BPM`;
+  return { scorePct, compare, isBest };
+}
+
+// Deliberately plain: the score is just more text on the overlay that was
+// already here, appearing at once with no reveal animation and no extra
+// dismiss step. Restart stays one Enter away the instant the track ends —
+// the whole point is never making someone sit through a celebration to get
+// back to playing.
 function showFinishedOverlay(): void {
+  const { scorePct, compare, isBest } = recordFinishedRun();
   countdownOverlay.innerHTML =
     "Track complete!" +
+    `<span class="score${isBest ? " score-best" : ""}">${scorePct}%</span>` +
+    `<div class="score-compare">${compare}</div>` +
     '<div class="nav-hint">Crash=Up · Kick=Down · Tom1=Left · Tom2=Right · Floor Tom=Enter · Ride=Back</div>';
   countdownOverlay.classList.add("visible", "finished-message");
   menuLevel = "main";
@@ -992,6 +1110,8 @@ window.addEventListener("pointerup", () => {
 
 openLibraryButton.addEventListener("click", openLibrary);
 closeLibraryButton.addEventListener("click", closeLibrary);
+openScoresButton.addEventListener("click", openScores);
+closeScoresButton.addEventListener("click", closeScores);
 
 // The button itself is drum-nav-reachable (it's in PAUSE_MENU/FINISHED_MENU,
 // so Enter fires this click like any other menu button) — but the OS file
