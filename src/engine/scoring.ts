@@ -190,7 +190,9 @@ export class ScoringEngine {
     const delta = chartTimeMs - note.timeMs; // negative = early, positive = late
     const judgment: Judgment = Math.abs(delta) <= this.windows.perfectMs ? "perfect" : delta < 0 ? "early" : "late";
 
-    this.judgments.set(note, judgment);
+    // delta rides along so the renderer can nudge the note to where it was
+    // actually played, rather than where it was written.
+    this.judgments.set(note, judgment, delta);
     this.stats[judgment]++;
     bucket.splice(bestIdx, 1);
     return { lane, judgment, nearestDeltaMs: delta };

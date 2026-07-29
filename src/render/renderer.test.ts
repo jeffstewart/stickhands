@@ -23,6 +23,36 @@ describe("NoteJudgments", () => {
     judgments.clear();
     expect(judgments.get(note)).toBe("pending");
   });
+
+  it("records the timing offset of a judged hit, signed early-negative/late-positive", () => {
+    const judgments = new NoteJudgments();
+    const early: ChartNote = { lane: "kick", timeMs: 0, velocity: 100 };
+    const late: ChartNote = { lane: "snare", timeMs: 0, velocity: 100 };
+    judgments.set(early, "early", -42);
+    judgments.set(late, "late", 37);
+    expect(judgments.getOffsetMs(early)).toBe(-42);
+    expect(judgments.getOffsetMs(late)).toBe(37);
+  });
+
+  // The renderer multiplies this offset into a horizontal nudge, so anything
+  // that wasn't actually played must report 0 or unplayed notes would drift
+  // off the beat grid and read as mistimed hits.
+  it("reports zero offset for notes that were never hit", () => {
+    const judgments = new NoteJudgments();
+    const pending: ChartNote = { lane: "kick", timeMs: 0, velocity: 100 };
+    const missed: ChartNote = { lane: "snare", timeMs: 0, velocity: 100 };
+    judgments.set(missed, "miss"); // auto-miss passes no offset
+    expect(judgments.getOffsetMs(pending)).toBe(0);
+    expect(judgments.getOffsetMs(missed)).toBe(0);
+  });
+
+  it("clear resets offsets too, not just judgments", () => {
+    const judgments = new NoteJudgments();
+    const note: ChartNote = { lane: "kick", timeMs: 0, velocity: 100 };
+    judgments.set(note, "late", 50);
+    judgments.clear();
+    expect(judgments.getOffsetMs(note)).toBe(0);
+  });
 });
 
 describe("ExtraHitMarkers", () => {

@@ -30,6 +30,13 @@ export interface RendererOptions {
   lookaheadMs: number; // how far ahead of nowMs to start drawing notes
   extraHitLifetimeMs: number; // how long an extra-hit marker stays visible before fading out
   loopPreviewAlpha: number; // opacity of next-rep preview notes, distinguishing them from the current rep's
+  // Multiplier on the timing-error nudge described in NoteJudgments. At 1 a
+  // hit note is drawn exactly where it was played, so it lands on the hit
+  // line at the moment of impact and then rides that far off the beat grid
+  // — late notes trailing right, early notes running left. Raise it to
+  // exaggerate small errors, or set 0 to pin notes to the grid and go back
+  // to colour-only feedback.
+  judgmentShiftScale: number;
 }
 
 const DEFAULT_OPTIONS: RendererOptions = {
@@ -38,6 +45,7 @@ const DEFAULT_OPTIONS: RendererOptions = {
   lookaheadMs: 2500,
   extraHitLifetimeMs: 400,
   loopPreviewAlpha: 0.35,
+  judgmentShiftScale: 1,
 };
 
 const EXTRA_HIT_COLOR = "255, 71, 87"; // rgb components; alpha applied separately for the fade
@@ -78,20 +86,34 @@ export class ExtraHitMarkers {
 
 // Tracks per-note judgment so the scoring engine (milestone 3) can flip a
 // note's color on hit/early/late without the renderer knowing anything about
-// scoring logic itself.
+// scoring logic itself. Also carries how far off the hit was, in ms
+// (negative = early, positive = late), which the renderer turns into a
+// positional nudge so timing error is legible as displacement and not only
+// as colour.
 export class NoteJudgments {
   private readonly judgments = new Map<ChartNote, Judgment>();
+  private readonly offsetsMs = new Map<ChartNote, number>();
 
   get(note: ChartNote): Judgment {
     return this.judgments.get(note) ?? "pending";
   }
 
-  set(note: ChartNote, judgment: Judgment): void {
+  // 0 for anything that wasn't matched to an actual hit — pending notes and
+  // auto-misses both stay pinned to their written position, so only notes
+  // you really played ever move.
+  getOffsetMs(note: ChartNote): number {
+    return this.offsetsMs.get(note) ?? 0;
+  }
+
+  // Always writes both maps so a judgment and its offset can't drift apart.
+  set(note: ChartNote, judgment: Judgment, offsetMs = 0): void {
     this.judgments.set(note, judgment);
+    this.offsetsMs.set(note, offsetMs);
   }
 
   clear(): void {
     this.judgments.clear();
+    this.offsetsMs.clear();
   }
 }
 
@@ -234,7 +256,12 @@ export class ChartRenderer {
     // notes: spawn off the right edge, scroll left toward the hit line
     const noteRadius = Math.min(laneHeight * 0.3, 24);
     for (const note of this.chart.notes) {
-      this.drawNoteCircle(note, note.timeMs - nowMs, noteRadius, hitLineX, 1);
+      // Nudge a played note to where it was actually struck. Only judged
+      // hits carry a non-zero offset (see NoteJudgments.getOffsetMs), so
+      // pending and missed notes stay pinned to the beat grid and the
+      // displacement reads as "how far off was I".
+      const shiftMs = this.judgments.getOffsetMs(note) * options.judgmentShiftScale;
+      this.drawNoteCircle(note, note.timeMs + shiftMs - nowMs, noteRadius, hitLineX, 1);
     }
 
     // Seamless-loop preview: once we're within lookaheadMs of the loop's end,
