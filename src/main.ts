@@ -255,7 +255,6 @@ const FINISHED_MENU: HTMLButtonElement[] = [
   openLibraryButton,
   openScoresButton,
   nextTrackButton,
-  loadMidiButton,
 ];
 const PAUSE_MENU: HTMLButtonElement[] = [
   restartButton,
@@ -265,7 +264,6 @@ const PAUSE_MENU: HTMLButtonElement[] = [
   openLibraryButton,
   openScoresButton,
   nextTrackButton,
-  loadMidiButton,
 ];
 const PAUSE_MENU_DEFAULT_INDEX = PAUSE_MENU.indexOf(pauseButton); // Enter still resumes immediately by default
 const SETTINGS_MENU: MenuItem[] = [
@@ -617,7 +615,7 @@ function renderManageList(): void {
     manageList.appendChild(row);
     manageMenu.push(loadButton, pinButton);
   }
-  manageMenu.push(closeManageButton);
+  manageMenu.push(loadMidiButton, closeManageButton);
 }
 
 function openManage(): void {
@@ -1296,12 +1294,12 @@ nextTrackButton.addEventListener("click", () => cycleTrack(1));
 openScoresButton.addEventListener("click", openScores);
 closeScoresButton.addEventListener("click", closeScores);
 
-// The button itself is drum-nav-reachable (it's in PAUSE_MENU/FINISHED_MENU,
-// so Enter fires this click like any other menu button) — but the OS file
-// dialog it opens is inherently mouse-driven, so the mouse is still needed
-// for the actual file selection. The song library (below) is what makes a
-// track drum-nav-reachable on every subsequent play, without needing the
-// mouse again.
+// Lives on the Manage library screen rather than the toolbar: importing is
+// a library-management action, not something you reach for mid-practice.
+// It's drum-nav-reachable there (Enter fires this click like any other menu
+// button), but the OS file dialog it opens is inherently mouse-driven, so
+// the mouse is still needed for the actual file selection. The quick list is
+// what makes a track reachable without a mouse on every subsequent play.
 loadMidiButton.addEventListener("click", () => midiFileInput.click());
 
 midiFileInput.addEventListener("change", async () => {

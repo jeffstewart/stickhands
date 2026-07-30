@@ -49,14 +49,14 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
 
 ## What it does
 
-- **Import your own charts.** `.mid` / `.midi`, and uncompressed `.musicxml`
-  / `.xml`. Compressed `.mxl` (MuseScore and Finale's default) is *not*
-  supported — export uncompressed.
+- **Import your own charts** via Songs → Manage library → Add track. `.mid` /
+  `.midi`, and uncompressed `.musicxml` / `.xml`. Compressed `.mxl`
+  (MuseScore and Finale's default) is *not* supported — export uncompressed.
 - **Song library, split in two.** Songs is a short *quick list* of the tracks
   you're currently working on — Next Track cycles it straight from the main
   screen, no menus. Manage library (inside Songs) holds everything you've
-  ever imported, where you pin tracks into the quick list, delete them, and
-  compare best score and run count across every track at a glance.
+  ever imported, where you add tracks, pin them into the quick list, delete
+  them, and compare best score and run count across every track at a glance.
 - **Practice looping.** Mark a bar range — either with the sliders or by
   dragging the ends of the track overview — and loop it. "No break" mode
   scrolls the next repetition into view before the current one ends, so the

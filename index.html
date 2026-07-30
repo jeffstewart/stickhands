@@ -17,8 +17,6 @@
       <button id="open-library" type="button">Songs</button>
       <button id="open-scores" type="button">Scores</button>
       <button id="next-track" type="button">Next Track &#9654;</button>
-      <button id="load-midi" type="button">Load MIDI/MusicXML file&hellip;</button>
-      <input type="file" id="midi-file-input" accept=".mid,.midi,.musicxml,.xml" class="hidden" />
       <p id="import-status" class="hint"></p>
       <p id="midi-status">MIDI not connected</p>
       <div id="settings-panel" class="panel hidden">
@@ -79,7 +77,9 @@
           Mostly a mouse screen, but drum pads still reach the load and quick-list buttons.
         </p>
         <div id="manage-list"></div>
-        <p id="manage-empty" class="hint-inline">Nothing imported yet — use Load MIDI/MusicXML file&hellip;</p>
+        <p id="manage-empty" class="hint-inline">Nothing imported yet — add your first track below.</p>
+        <button id="load-midi" type="button">Add track&hellip;</button>
+        <input type="file" id="midi-file-input" accept=".mid,.midi,.musicxml,.xml" class="hidden" />
         <button id="close-manage" type="button">Back</button>
       </div>
       <div id="scores-panel" class="panel hidden">
