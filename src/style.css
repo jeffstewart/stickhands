@@ -47,6 +47,12 @@ canvas {
 }
 
 #countdown-overlay.finished-message {
+  /* The overlay is a centring flex container, so without this its children
+     (title, score, comparison, nav hint) lay out side by side and run
+     together. Only the finished/paused variants have multiple children —
+     the count-in is a single number, so it's unaffected either way. */
+  flex-direction: column;
+  gap: 2px;
   font-size: 28px;
   text-align: center;
   padding: 0 32px;
@@ -87,6 +93,14 @@ canvas {
 /* .panel's own display:inline-flex outweighs .hidden on specificity alone,
    so this override is needed to actually hide it. */
 .panel.hidden {
+  display: none;
+}
+
+/* Instructional text only — .tip is set on the "how this screen works"
+   copy, never on status output like #import-status or the .hint-inline
+   state messages, so hiding hints can't swallow an import error. */
+body.hide-hints .tip,
+body.hide-hints .nav-hint {
   display: none;
 }
 

@@ -75,6 +75,12 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
   silence, but only when the chart actually expects notes, so a genuine rest
   won't trigger it.
 - **Metronome and audible count-in**, both optional.
+- **Hints off once you know the app.** Settings → Hints hides the
+  "how this screen works" copy and the drum-pad legend. Status output —
+  import results, errors, empty-list explanations — is never hidden.
+- **Debug readout** (Settings, off by default) shows each incoming hit: the
+  MIDI note, the lane and articulation it resolved to, and how far off it
+  landed. The fastest way to find out what a given pad actually sends.
 - **Scoring and history.** Finishing a track shows a percent score inline on
   the completion overlay — no banner, no animation, nothing to dismiss, so a
   restart is always one press away. Past runs live on their own Scores

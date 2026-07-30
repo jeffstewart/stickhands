@@ -40,6 +40,8 @@ const resetTempoButton = document.querySelector<HTMLButtonElement>("#reset-tempo
 const pausePadSelect = document.querySelector<HTMLSelectElement>("#pause-pad")!;
 const metronomeToggle = document.querySelector<HTMLSelectElement>("#metronome-toggle")!;
 const padSoundToggle = document.querySelector<HTMLSelectElement>("#pad-sound-toggle")!;
+const hintsToggle = document.querySelector<HTMLSelectElement>("#hints-toggle")!;
+const debugToggle = document.querySelector<HTMLSelectElement>("#debug-toggle")!;
 const loadMidiButton = document.querySelector<HTMLButtonElement>("#load-midi")!;
 const midiFileInput = document.querySelector<HTMLInputElement>("#midi-file-input")!;
 const importStatus = document.querySelector<HTMLParagraphElement>("#import-status")!;
@@ -146,6 +148,36 @@ metronomeToggle.addEventListener("change", () => {
 // rather than through playDrumSound(). That combination is the point: route
 // this app's audio into a kit's aux-in and you hear the click track over the
 // kit module's own (better) drum sounds, with no doubled drums.
+// Hides the "how this screen works" copy once you no longer need it. Only
+// touches .tip/.nav-hint text — status output (import results, loop errors,
+// empty-list explanations) is never hidden, since that's information about
+// what just happened rather than instruction.
+hintsToggle.addEventListener("change", () => {
+  document.body.classList.toggle("hide-hints", hintsToggle.value === "off");
+});
+
+// Per-hit MIDI readout: which note arrived, which lane/articulation it
+// resolved to, and how far off it landed. Invaluable when working out what a
+// pad actually sends, pure noise while playing — so it's off by default and
+// the line stays on the MIDI *connection* status instead.
+let debugReadout = false;
+debugToggle.addEventListener("change", () => {
+  debugReadout = debugToggle.value === "on";
+  if (!debugReadout) midiStatus.textContent = lastMidiConnectionStatus;
+});
+let lastMidiConnectionStatus = "MIDI not connected";
+
+function setMidiConnectionStatus(text: string): void {
+  lastMidiConnectionStatus = text;
+  midiStatus.textContent = text;
+}
+
+// Per-hit diagnostics only land on screen in debug mode; otherwise the line
+// keeps showing connection state, which is useful at any time.
+function showHitReadout(text: string): void {
+  if (debugReadout) midiStatus.textContent = text;
+}
+
 let padSoundsEnabled = true;
 padSoundToggle.addEventListener("change", () => {
   padSoundsEnabled = padSoundToggle.value === "on";
@@ -273,6 +305,8 @@ const SETTINGS_MENU: MenuItem[] = [
   pausePadSelect,
   metronomeToggle,
   padSoundToggle,
+  hintsToggle,
+  debugToggle,
   connectButton,
   closeSettingsButton,
 ];
@@ -1337,17 +1371,17 @@ async function connectMidi(): Promise<void> {
     await midi.connect();
     const inputs = midi.listInputNames();
     if (inputs.length > 0) {
-      midiStatus.textContent = `Connected. Inputs: ${inputs.join(", ")}`;
+      setMidiConnectionStatus(`Connected. Inputs: ${inputs.join(", ")}`);
       // A real input is live — the button's only job is done, so tuck it
       // away to declutter Settings. It comes back if there's ever nothing
       // to reconnect to (e.g. the kit gets unplugged and the page reloads).
       connectButton.classList.add("hidden");
     } else {
-      midiStatus.textContent = "Connected, but no MIDI inputs found";
+      setMidiConnectionStatus("Connected, but no MIDI inputs found");
       connectButton.classList.remove("hidden");
     }
   } catch (err) {
-    midiStatus.textContent = `MIDI connection failed: ${(err as Error).message}`;
+    setMidiConnectionStatus(`MIDI connection failed: ${(err as Error).message}`);
     connectButton.classList.remove("hidden");
   }
 }
@@ -1387,7 +1421,7 @@ midi.onNoteOn((event) => {
   // Articulation is surfaced here too — it's the quickest way to tell whether
   // a given pedal position/pad actually sends a distinct note on this kit.
   const laneText = lane ? `-> ${lane}${articulation ? ` (${articulation})` : ""}` : "(unmapped)";
-  midiStatus.textContent = `note=${event.note} vel=${event.velocity} ${laneText}${formatHitOutcome(outcome)}`;
+  showHitReadout(`note=${event.note} vel=${event.velocity} ${laneText}${formatHitOutcome(outcome)}`);
 });
 
 // --- Keyboard-simulated input (for testing without a physical kit) ---
@@ -1427,5 +1461,5 @@ window.addEventListener("keydown", (e) => {
     outcome = scoring.handleMidiNote(event, clock);
   });
   const artText = hit.articulation ? ` (${hit.articulation})` : "";
-  midiStatus.textContent = `(keyboard) -> ${hit.lane}${artText}${formatHitOutcome(outcome)}`;
+  showHitReadout(`(keyboard) -> ${hit.lane}${artText}${formatHitOutcome(outcome)}`);
 });
