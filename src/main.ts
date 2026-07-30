@@ -19,6 +19,7 @@ import { parseMidiFile } from "./import/midiImport";
 import { parseMusicXmlFile } from "./import/musicXmlImport";
 import { deleteSong, listPinned, listSongs, saveSong, setPinned } from "./storage/songLibrary";
 import { bestScore, chartKey, listAttempts, recordAttempt } from "./storage/scoreHistory";
+import { loadSettings, saveSettings } from "./storage/settings";
 import { DrumSynth } from "./audio/DrumSynth";
 import { DrumSampler, type SampleKitSpec } from "./audio/DrumSampler";
 
@@ -136,11 +137,27 @@ let activeLoop: { startMs: number; endMs: number; withBreak: boolean } | null = 
 let pausePadLane: Lane | null = null;
 pausePadSelect.addEventListener("change", () => {
   pausePadLane = (pausePadSelect.value as Lane) || null;
+  persistSettings();
 });
+
+// Called from every settings control, so preferences survive a reload.
+// Reads straight off the live controls/state rather than tracking a parallel
+// copy, which keeps this the single place that can drift.
+function persistSettings(): void {
+  saveSettings(localStorage, {
+    difficulty: difficultySelect.value as HitWindowPreset,
+    pausePad: pausePadLane ?? "",
+    metronome: metronomeEnabled,
+    padSounds: padSoundsEnabled,
+    hints: hintsToggle.value === "on",
+    debugReadout,
+  });
+}
 
 let metronomeEnabled = false;
 metronomeToggle.addEventListener("change", () => {
   metronomeEnabled = metronomeToggle.value === "on";
+  persistSettings();
 });
 
 // Turning this off silences only the player's own hits — the count-in and
@@ -154,6 +171,7 @@ metronomeToggle.addEventListener("change", () => {
 // what just happened rather than instruction.
 hintsToggle.addEventListener("change", () => {
   document.body.classList.toggle("hide-hints", hintsToggle.value === "off");
+  persistSettings();
 });
 
 // Per-hit MIDI readout: which note arrived, which lane/articulation it
@@ -164,6 +182,7 @@ let debugReadout = false;
 debugToggle.addEventListener("change", () => {
   debugReadout = debugToggle.value === "on";
   if (!debugReadout) midiStatus.textContent = lastMidiConnectionStatus;
+  persistSettings();
 });
 let lastMidiConnectionStatus = "MIDI not connected";
 
@@ -182,6 +201,7 @@ let padSoundsEnabled = true;
 padSoundToggle.addEventListener("change", () => {
   padSoundsEnabled = padSoundToggle.value === "on";
   if (padSoundsEnabled) ensureSamplesLoading(); // may have been skipped while off
+  persistSettings();
 });
 
 // The kit: which /public/samples/muldjord/<lane>_v<N>.wav files exist (see
@@ -228,6 +248,10 @@ function refreshStats(): void {
 }
 
 let trackFinished = false;
+// True between loading a track and actually starting it. Only the initial
+// page load arms a track this way; picking one from the library or
+// cycling with Next Track is an explicit choice, so those still start.
+let notStarted = false;
 let finishedAtMs = 0; // real wall-clock time (performance.now()), not chart time
 const RESTART_GRACE_MS = 1200; // ignore pad hits right after finish — a late hit while still "in the groove" shouldn't restart
 
@@ -766,11 +790,12 @@ function handleNavDirection(dir: NavDirection): void {
 // new song) and the loop editor (a slice of the current song) build on. Does
 // NOT touch tempo/pause-pad/etc: those are properties of the underlying
 // song, unchanged by which section of it is currently playing.
-function swapChart(chart: Chart, statusText: string): void {
+function swapChart(chart: Chart, statusText: string, autoStart = true): void {
   scoring.loadChart(chart);
   renderer.loadChart(chart);
   status.textContent = statusText;
-  startWithCountdown();
+  if (autoStart) startWithCountdown();
+  else armTrack();
 }
 
 // Swaps in an entirely different chart (e.g. the player picked a new song):
@@ -778,7 +803,7 @@ function swapChart(chart: Chart, statusText: string): void {
 // derived from the previous chart's bpm/lane-usage, and starts the countdown
 // fresh. This is the one place all of that per-track setup needs to happen —
 // startWithCountdown() alone (replaying the same chart) doesn't touch any of it.
-function loadTrack(chart: Chart, songId: string | null = null): void {
+function loadTrack(chart: Chart, songId: string | null = null, autoStart = true): void {
   fullChart = chart;
   currentSongId = songId;
   activeLoop = null;
@@ -804,7 +829,11 @@ function loadTrack(chart: Chart, songId: string | null = null): void {
 
   exitLoopButton.classList.add("hidden");
   setUpLoopEditor(chart);
-  swapChart(chart, `Playing "${chart.title}" — ${chart.notes.length} notes`);
+  swapChart(
+    chart,
+    `${autoStart ? "Playing" : "Ready"} "${chart.title}" — ${chart.notes.length} notes`,
+    autoStart,
+  );
 }
 
 // A user-designated "pause pad" needs no extra hardware (unlike a footswitch
@@ -957,6 +986,7 @@ function exitLoop(): void {
 // seamless restart, since even a beat count-in would kill the groove there.
 function startWithCountdown(delayMs: number = currentBarMs()): void {
   trackFinished = false;
+  notStarted = false;
   pauseButton.textContent = "Pause";
   countdownOverlay.classList.remove("finished-message");
   menuLevel = "main";
@@ -1004,8 +1034,41 @@ function resumeTrack(): void {
 
 function togglePause(): void {
   if (trackFinished) return; // nothing to pause once the track's already done
+  // "Not started yet" is a distinct state from "paused mid-song": starting
+  // has to run the full count-in, not resume a clock frozen partway through
+  // one. startWithCountdown() clears the flag.
+  if (notStarted) {
+    startWithCountdown();
+    return;
+  }
   if (clock.isPaused()) resumeTrack();
   else pauseTrack();
+}
+
+// Sets a track up exactly as starting would, then holds it at the count-in's
+// first beat instead of running it — so opening the app doesn't drop you
+// mid-song before you've picked up sticks. Reuses startWithCountdown() so
+// there's no second copy of the per-run reset (judgments, stats, idle and
+// metronome tracking) to fall out of sync.
+function armTrack(): void {
+  startWithCountdown();
+  notStarted = true;
+  clock.pause();
+  pauseButton.textContent = "Start";
+  showReadyOverlay();
+}
+
+function showReadyOverlay(): void {
+  countdownOverlay.innerHTML =
+    "Ready" +
+    // Not a .tip: with hints hidden this is the only thing telling you the
+    // track is waiting on you rather than broken.
+    `<div class="score-compare">${fullChart.title} — press Start to begin</div>` +
+    '<div class="nav-hint">Crash=Up · Kick=Down · Tom1=Left · Tom2=Right · Floor Tom=Enter · Ride=Back</div>';
+  countdownOverlay.classList.add("visible", "finished-message");
+  menuLevel = "main";
+  menuFocusIndex = PAUSE_MENU_DEFAULT_INDEX; // Start is what Enter should hit
+  updateMenuFocusUI();
 }
 
 // A musical count-in (1, 2, 3, 4, Go!) rather than a generic countdown (3,
@@ -1231,6 +1294,7 @@ requestAnimationFrame(scoringLoop);
 difficultySelect.addEventListener("change", () => {
   const preset = difficultySelect.value as HitWindowPreset;
   scoring.setWindows(HIT_WINDOW_PRESETS[preset]);
+  persistSettings();
 });
 
 tempoSlider.addEventListener("input", () => {
@@ -1361,7 +1425,28 @@ midiFileInput.addEventListener("change", async () => {
   }
 });
 
-loadTrack(DEMO_CHART);
+// Restore saved preferences before the first track loads. The selects are
+// driven through their own change events so there's one code path for
+// applying a setting, rather than a second copy that could drift.
+{
+  const saved = loadSettings(localStorage);
+  difficultySelect.value = saved.difficulty;
+  difficultySelect.dispatchEvent(new Event("change"));
+  metronomeToggle.value = saved.metronome ? "on" : "off";
+  metronomeToggle.dispatchEvent(new Event("change"));
+  padSoundToggle.value = saved.padSounds ? "on" : "off";
+  padSoundToggle.dispatchEvent(new Event("change"));
+  hintsToggle.value = saved.hints ? "on" : "off";
+  hintsToggle.dispatchEvent(new Event("change"));
+  debugToggle.value = saved.debugReadout ? "on" : "off";
+  debugToggle.dispatchEvent(new Event("change"));
+  // Set directly, not via the select: its <option>s don't exist until
+  // loadTrack() builds them per track, and updatePausePadOptions() reads
+  // this variable to set the select (dropping it if the track uses that lane).
+  pausePadLane = saved.pausePad || null;
+}
+
+loadTrack(DEMO_CHART, null, false);
 
 // --- Real MIDI input ---
 const midi = new WebMidiSource();

@@ -23,6 +23,15 @@ npm run dev
 Then open the printed URL. **Use a Chromium-based browser** — Web MIDI isn't
 supported in Safari and is gated in Firefox.
 
+The app opens on a **Ready** screen rather than playing immediately; press
+Start (or the floor tom) when you're actually at the kit. Picking a track
+yourself — from the quick list, or with Next Track — starts it straight away,
+since that's already a deliberate choice.
+
+Settings persist across reloads. Tempo deliberately doesn't: the slider is
+anchored to each track's own BPM, so a remembered number would mean
+something different on every track.
+
 No kit attached? The keyboard stands in:
 
 | Key | | Key | |
