@@ -121,6 +121,42 @@ canvas {
   flex-shrink: 0;
 }
 
+#manage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 620px;
+}
+
+.manage-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.manage-row .song-item {
+  flex: 1;
+}
+
+/* Runs/best for this track, so the library doubles as a cross-track
+   comparison without having to load each one and open Scores. */
+.manage-row .song-stats {
+  color: #8a8f9c;
+  font-size: 12px;
+  min-width: 104px;
+  text-align: right;
+}
+
+.pin-toggle {
+  flex-shrink: 0;
+  min-width: 104px;
+}
+
+.pin-toggle.is-pinned {
+  color: #3ddc84;
+}
+
 .song-delete.armed {
   background: #ff6b6b;
   color: #15171d;

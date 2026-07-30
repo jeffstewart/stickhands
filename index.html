@@ -16,6 +16,7 @@
       <button id="open-loop" type="button">Loop</button>
       <button id="open-library" type="button">Songs</button>
       <button id="open-scores" type="button">Scores</button>
+      <button id="next-track" type="button">Next Track &#9654;</button>
       <button id="load-midi" type="button">Load MIDI/MusicXML file&hellip;</button>
       <input type="file" id="midi-file-input" accept=".mid,.midi,.musicxml,.xml" class="hidden" />
       <p id="import-status" class="hint"></p>
@@ -66,10 +67,20 @@
         <p id="loop-error" class="hint-inline"></p>
       </div>
       <div id="library-panel" class="panel hidden">
-        <p class="hint">Previously imported songs. Enter (or click) loads one.</p>
+        <p class="hint">Quick list &mdash; Enter (or click) loads one. Next Track cycles these.</p>
         <div id="library-list"></div>
-        <p id="library-empty" class="hint-inline">No saved songs yet — Load MIDI/MusicXML file&hellip; adds one here.</p>
+        <p id="library-empty" class="hint-inline">Quick list is empty. Add tracks to it from Manage library.</p>
+        <button id="open-manage" type="button">Manage library&hellip;</button>
         <button id="close-library" type="button">Back</button>
+      </div>
+      <div id="manage-panel" class="panel hidden">
+        <p class="hint">
+          Every imported track. &ldquo;In quick list&rdquo; controls what appears on the main screen and in Next Track.
+          Mostly a mouse screen, but drum pads still reach the load and quick-list buttons.
+        </p>
+        <div id="manage-list"></div>
+        <p id="manage-empty" class="hint-inline">Nothing imported yet — use Load MIDI/MusicXML file&hellip;</p>
+        <button id="close-manage" type="button">Back</button>
       </div>
       <div id="scores-panel" class="panel hidden">
         <p class="hint">Completed runs of this track, newest first. Only full run-throughs count &mdash; restarts and practice loops aren't recorded.</p>

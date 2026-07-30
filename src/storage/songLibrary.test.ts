@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Chart } from "../engine/chart";
 import type { KeyValueStore } from "./songLibrary";
-import { deleteSong, listSongs, saveSong } from "./songLibrary";
+import { deleteSong, listPinned, listSongs, saveSong, setPinned } from "./songLibrary";
 
 // Plain in-memory stand-in for localStorage — this project's tests run under
 // plain Node, not jsdom, so there's no real Storage global to reach for.
@@ -79,5 +79,51 @@ describe("songLibrary", () => {
     const store = fakeStore();
     store.setItem("drumhero.library.v1", JSON.stringify({ oops: "wrong shape" }));
     expect(listSongs(store)).toEqual([]);
+  });
+});
+
+describe("pinning", () => {
+  it("puts newly imported songs in the quick list", () => {
+    const store = fakeStore();
+    expect(saveSong(store, makeChart("New")).pinned).toBe(true);
+    expect(listPinned(store)).toHaveLength(1);
+  });
+
+  it("unpinning removes a song from the quick list but not the library", () => {
+    const store = fakeStore();
+    const song = saveSong(store, makeChart("Track"));
+    setPinned(store, song.id, false);
+    expect(listPinned(store)).toHaveLength(0);
+    expect(listSongs(store)).toHaveLength(1);
+    expect(listSongs(store)[0]!.pinned).toBe(false);
+  });
+
+  it("can pin a song back again", () => {
+    const store = fakeStore();
+    const song = saveSong(store, makeChart("Track"));
+    setPinned(store, song.id, false);
+    setPinned(store, song.id, true);
+    expect(listPinned(store)).toHaveLength(1);
+  });
+
+  it("only touches the targeted song", () => {
+    const store = fakeStore();
+    const a = saveSong(store, makeChart("A"));
+    saveSong(store, makeChart("B"));
+    setPinned(store, a.id, false);
+    const byTitle = Object.fromEntries(listSongs(store).map((s) => [s.chart.title, s.pinned]));
+    expect(byTitle).toEqual({ A: false, B: true });
+  });
+
+  // Libraries saved before pinning existed have no flag at all; defaulting
+  // them to pinned means upgrading never makes the main screen look empty.
+  it("treats songs stored before pinning existed as pinned", () => {
+    const store = fakeStore();
+    store.setItem(
+      "drumhero.library.v1",
+      JSON.stringify([{ id: "legacy", chart: makeChart("Old"), importedAt: 1 }]),
+    );
+    expect(listSongs(store)[0]!.pinned).toBe(true);
+    expect(listPinned(store)).toHaveLength(1);
   });
 });

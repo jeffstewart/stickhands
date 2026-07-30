@@ -17,7 +17,7 @@ import type { MidiNoteEvent } from "./midi/MidiSource";
 import { LANE_TO_NAV, type NavDirection } from "./engine/navigation";
 import { parseMidiFile } from "./import/midiImport";
 import { parseMusicXmlFile } from "./import/musicXmlImport";
-import { deleteSong, listSongs, saveSong } from "./storage/songLibrary";
+import { deleteSong, listPinned, listSongs, saveSong, setPinned } from "./storage/songLibrary";
 import { bestScore, chartKey, listAttempts, recordAttempt } from "./storage/scoreHistory";
 import { DrumSynth } from "./audio/DrumSynth";
 import { DrumSampler, type SampleKitSpec } from "./audio/DrumSampler";
@@ -67,6 +67,12 @@ const scoresPanel = document.querySelector<HTMLDivElement>("#scores-panel")!;
 const scoresGraph = document.querySelector<HTMLCanvasElement>("#scores-graph")!;
 const scoresList = document.querySelector<HTMLDivElement>("#scores-list")!;
 const scoresEmpty = document.querySelector<HTMLParagraphElement>("#scores-empty")!;
+const nextTrackButton = document.querySelector<HTMLButtonElement>("#next-track")!;
+const openManageButton = document.querySelector<HTMLButtonElement>("#open-manage")!;
+const closeManageButton = document.querySelector<HTMLButtonElement>("#close-manage")!;
+const managePanel = document.querySelector<HTMLDivElement>("#manage-panel")!;
+const manageList = document.querySelector<HTMLDivElement>("#manage-list")!;
+const manageEmpty = document.querySelector<HTMLParagraphElement>("#manage-empty")!;
 
 const clock = new PlaybackClock();
 const judgments = new NoteJudgments();
@@ -120,6 +126,9 @@ function applyTempo(bpm: number): void {
 // Only loadTrack() (a genuinely new song) updates this; starting/exiting a
 // loop swaps the active chart without touching it.
 let fullChart: Chart = DEMO_CHART;
+// Which library entry is playing, or null for the built-in demo / a chart
+// that isn't in the library. Drives where Next Track resumes from.
+let currentSongId: string | null = null;
 let activeLoop: { startMs: number; endMs: number; withBreak: boolean } | null = null;
 
 let pausePadLane: Lane | null = null;
@@ -245,6 +254,7 @@ const FINISHED_MENU: HTMLButtonElement[] = [
   openLoopButton,
   openLibraryButton,
   openScoresButton,
+  nextTrackButton,
   loadMidiButton,
 ];
 const PAUSE_MENU: HTMLButtonElement[] = [
@@ -254,6 +264,7 @@ const PAUSE_MENU: HTMLButtonElement[] = [
   openLoopButton,
   openLibraryButton,
   openScoresButton,
+  nextTrackButton,
   loadMidiButton,
 ];
 const PAUSE_MENU_DEFAULT_INDEX = PAUSE_MENU.indexOf(pauseButton); // Enter still resumes immediately by default
@@ -284,6 +295,10 @@ let libraryMenu: HTMLButtonElement[] = [];
 // the library this is just the Back button. Drum-nav still has somewhere
 // to land and a way out, which is what matters.
 const SCORES_MENU: MenuItem[] = [closeScoresButton];
+// Rebuilt per song like libraryMenu. Load and quick-list buttons are
+// included; Delete deliberately is not, keeping destructive actions
+// mouse-only as they have been since the library was added.
+let manageMenu: HTMLButtonElement[] = [];
 // Arms a song's delete button for a second confirming click (see
 // renderLibraryList) — an in-panel two-click confirm instead of a native
 // confirm() dialog, which is both visually inconsistent with this app's
@@ -291,7 +306,7 @@ const SCORES_MENU: MenuItem[] = [closeScoresButton];
 // browser contexts by blocking the whole page.
 let pendingDeleteId: string | null = null;
 
-type MenuLevel = "main" | "settings" | "loop" | "library" | "scores";
+type MenuLevel = "main" | "settings" | "loop" | "library" | "scores" | "manage";
 let menuLevel: MenuLevel = "main";
 let menuFocusIndex = 0;
 
@@ -309,6 +324,8 @@ function currentMenu(): MenuItem[] {
           ? libraryMenu
           : menuLevel === "scores"
             ? SCORES_MENU
+            : menuLevel === "manage"
+              ? manageMenu
           : trackFinished
             ? FINISHED_MENU
             : PAUSE_MENU;
@@ -317,7 +334,8 @@ function currentMenu(): MenuItem[] {
 
 function updateMenuFocusUI(): void {
   const active = currentMenu();
-  [...FINISHED_MENU, ...PAUSE_MENU, ...SETTINGS_MENU, ...LOOP_MENU, ...libraryMenu, ...SCORES_MENU].forEach((el) =>
+  [...FINISHED_MENU, ...PAUSE_MENU, ...SETTINGS_MENU, ...LOOP_MENU, ...libraryMenu, ...SCORES_MENU, ...manageMenu].forEach(
+    (el) =>
     el.classList.remove("nav-focused"),
   );
   if (menuActive()) active[menuFocusIndex]?.classList.add("nav-focused");
@@ -330,6 +348,7 @@ function hideAllPanels(): void {
   loopPanel.classList.add("hidden");
   libraryPanel.classList.add("hidden");
   scoresPanel.classList.add("hidden");
+  managePanel.classList.add("hidden");
 }
 
 function openSettings(): void {
@@ -369,53 +388,24 @@ function closeLoopEditor(): void {
 // open (or after a delete) rather than trying to keep it in sync incrementally.
 function renderLibraryList(): void {
   libraryList.innerHTML = "";
-  const songs = listSongs(localStorage);
+  const songs = listPinned(localStorage);
   libraryEmpty.classList.toggle("hidden", songs.length > 0);
   libraryMenu = songs.map((song) => {
-    const row = document.createElement("div");
-    row.className = "song-row";
-
-    const loadButton = document.createElement("button");
-    loadButton.type = "button";
-    loadButton.className = "song-item";
-    loadButton.textContent = `${song.chart.title} — ${song.chart.notes.length} notes, ${song.chart.bpm} BPM`;
-    loadButton.addEventListener("click", () => {
-      loadTrack(song.chart);
+    // Just the title, nothing else: this is the "pick something and play"
+    // screen, so management (deleting, pinning) lives in Manage library
+    // rather than crowding every row here.
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "song-item";
+    button.textContent = `${song.chart.title} — ${song.chart.notes.length} notes, ${song.chart.bpm} BPM`;
+    button.addEventListener("click", () => {
+      loadTrack(song.chart, song.id);
       closeLibrary();
     });
-
-    // Deliberately mouse-only, like the file-open dialog elsewhere — a
-    // destructive action doesn't need to compete for a drum pad. Armed via a
-    // second confirming click rather than a native confirm() dialog, which
-    // is both visually inconsistent with this app's fully custom UI and
-    // (confirmed directly) breaks in embedded/automated browser contexts by
-    // blocking the whole page.
-    const armed = song.id === pendingDeleteId;
-    const deleteButton = document.createElement("button");
-    deleteButton.type = "button";
-    deleteButton.className = armed ? "song-delete armed" : "song-delete";
-    deleteButton.textContent = armed ? "Confirm?" : "Delete";
-    deleteButton.setAttribute("aria-label", armed ? `Confirm delete of "${song.chart.title}"` : `Delete "${song.chart.title}"`);
-    deleteButton.addEventListener("click", () => {
-      if (!armed) {
-        pendingDeleteId = song.id;
-        renderLibraryList();
-        return;
-      }
-      pendingDeleteId = null;
-      deleteSong(localStorage, song.id);
-      renderLibraryList();
-      // The list just got shorter — focus may now point past the end.
-      if (menuFocusIndex >= libraryMenu.length) menuFocusIndex = Math.max(0, libraryMenu.length - 1);
-      updateMenuFocusUI();
-    });
-
-    row.appendChild(loadButton);
-    row.appendChild(deleteButton);
-    libraryList.appendChild(row);
-    return loadButton;
+    libraryList.appendChild(button);
+    return button;
   });
-  libraryMenu.push(closeLibraryButton); // matches SETTINGS_MENU/LOOP_MENU's pattern of including their own close button
+  libraryMenu.push(openManageButton, closeLibraryButton); // matches SETTINGS_MENU/LOOP_MENU's pattern of including their own close button
 }
 
 function openLibrary(): void {
@@ -563,6 +553,105 @@ function renderScoresList(): void {
   }
 }
 
+// Full library management. Deliberately mouse-first — a row carries a load
+// button, a quick-list toggle and a delete, which is more than drum-pad
+// navigation wants to walk through — but the load and toggle buttons are
+// still in the nav array so the screen is reachable without a mouse.
+// Delete stays mouse-only, as destructive actions have been throughout.
+function renderManageList(): void {
+  manageList.innerHTML = "";
+  const songs = listSongs(localStorage);
+  manageEmpty.classList.toggle("hidden", songs.length > 0);
+  manageMenu = [];
+  for (const song of songs) {
+    const row = document.createElement("div");
+    row.className = "manage-row";
+
+    const loadButton = document.createElement("button");
+    loadButton.type = "button";
+    loadButton.className = "song-item";
+    loadButton.textContent = `${song.chart.title} — ${song.chart.notes.length} notes, ${song.chart.bpm} BPM`;
+    loadButton.addEventListener("click", () => {
+      loadTrack(song.chart, song.id);
+      closeManage();
+    });
+
+    // Past performance inline, so this screen answers "which tracks have I
+    // actually improved on" without loading each one and opening Scores.
+    const key = chartKey(song.chart);
+    const runs = listAttempts(localStorage, key).length;
+    const best = bestScore(localStorage, key);
+    const stats = document.createElement("span");
+    stats.className = "song-stats";
+    stats.textContent = runs === 0 ? "no runs" : `best ${best}% · ${runs} run${runs === 1 ? "" : "s"}`;
+
+    const pinButton = document.createElement("button");
+    pinButton.type = "button";
+    pinButton.className = song.pinned ? "pin-toggle is-pinned" : "pin-toggle";
+    pinButton.textContent = song.pinned ? "★ In quick list" : "☆ Add to quick list";
+    pinButton.addEventListener("click", () => {
+      setPinned(localStorage, song.id, !song.pinned);
+      renderManageList();
+      updateMenuFocusUI();
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    const armed = song.id === pendingDeleteId;
+    deleteButton.className = armed ? "song-delete armed" : "song-delete";
+    deleteButton.textContent = armed ? "Confirm?" : "Delete";
+    deleteButton.addEventListener("click", () => {
+      if (!armed) {
+        pendingDeleteId = song.id;
+        renderManageList();
+        return;
+      }
+      pendingDeleteId = null;
+      deleteSong(localStorage, song.id);
+      renderManageList();
+      if (menuFocusIndex >= manageMenu.length) menuFocusIndex = Math.max(0, manageMenu.length - 1);
+      updateMenuFocusUI();
+    });
+
+    row.append(loadButton, stats, pinButton, deleteButton);
+    manageList.appendChild(row);
+    manageMenu.push(loadButton, pinButton);
+  }
+  manageMenu.push(closeManageButton);
+}
+
+function openManage(): void {
+  menuLevel = "manage";
+  menuFocusIndex = 0;
+  hideAllPanels();
+  managePanel.classList.remove("hidden");
+  renderManageList();
+  updateMenuFocusUI();
+}
+
+function closeManage(): void {
+  menuLevel = "main";
+  menuFocusIndex = 0;
+  pendingDeleteId = null;
+  managePanel.classList.add("hidden");
+  updateMenuFocusUI();
+}
+
+// Steps through the quick list without opening anything — the fast path for
+// "next song please" mid-practice. Wraps around, and starts at the top when
+// whatever's loaded isn't in the quick list (the demo chart, or a track
+// that's been unpinned since it was loaded).
+function cycleTrack(direction: 1 | -1 = 1): void {
+  const pinned = listPinned(localStorage);
+  if (pinned.length === 0) {
+    importStatus.textContent = "Quick list is empty — add tracks to it from Songs → Manage library.";
+    return;
+  }
+  const at = pinned.findIndex((s) => s.id === currentSongId);
+  const next = at === -1 ? pinned[direction > 0 ? 0 : pinned.length - 1]! : pinned[(at + direction + pinned.length) % pinned.length]!;
+  loadTrack(next.chart, next.id);
+}
+
 function openScores(): void {
   menuLevel = "scores";
   menuFocusIndex = 0;
@@ -634,6 +723,7 @@ function handleNavDirection(dir: NavDirection): void {
       else if (menuLevel === "loop") closeLoopEditor();
       else if (menuLevel === "library") closeLibrary();
       else if (menuLevel === "scores") closeScores();
+      else if (menuLevel === "manage") closeManage();
       // else already at the main level: nothing to back out of
       break;
   }
@@ -656,8 +746,9 @@ function swapChart(chart: Chart, statusText: string): void {
 // derived from the previous chart's bpm/lane-usage, and starts the countdown
 // fresh. This is the one place all of that per-track setup needs to happen —
 // startWithCountdown() alone (replaying the same chart) doesn't touch any of it.
-function loadTrack(chart: Chart): void {
+function loadTrack(chart: Chart, songId: string | null = null): void {
   fullChart = chart;
+  currentSongId = songId;
   activeLoop = null;
   renderer.setLoopInfo(null);
   // A fresh track load always drops straight into gameplay (startWithCountdown()
@@ -1199,6 +1290,9 @@ window.addEventListener("pointerup", () => {
 
 openLibraryButton.addEventListener("click", openLibrary);
 closeLibraryButton.addEventListener("click", closeLibrary);
+openManageButton.addEventListener("click", openManage);
+closeManageButton.addEventListener("click", closeManage);
+nextTrackButton.addEventListener("click", () => cycleTrack(1));
 openScoresButton.addEventListener("click", openScores);
 closeScoresButton.addEventListener("click", closeScores);
 
@@ -1217,9 +1311,9 @@ midiFileInput.addEventListener("change", async () => {
   try {
     const isMusicXml = /\.(musicxml|xml)$/i.test(file.name);
     const chart = isMusicXml ? await parseMusicXmlFile(file) : await parseMidiFile(file);
-    saveSong(localStorage, chart);
+    const saved = saveSong(localStorage, chart);
     importStatus.textContent = `Loaded "${chart.title}" — ${chart.notes.length} notes, ${chart.bpm} BPM (saved to Songs)`;
-    loadTrack(chart); // also closes any open panel (including Library) — see loadTrack()'s hideAllPanels()
+    loadTrack(chart, saved.id); // also closes any open panel (including Library) — see loadTrack()'s hideAllPanels()
   } catch (err) {
     importStatus.textContent = `Couldn't load "${file.name}": ${(err as Error).message}`;
   }
