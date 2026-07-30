@@ -1309,11 +1309,21 @@ midiFileInput.addEventListener("change", async () => {
   try {
     const isMusicXml = /\.(musicxml|xml)$/i.test(file.name);
     const chart = isMusicXml ? await parseMusicXmlFile(file) : await parseMidiFile(file);
-    const saved = saveSong(localStorage, chart);
-    importStatus.textContent = `Loaded "${chart.title}" — ${chart.notes.length} notes, ${chart.bpm} BPM (saved to Songs)`;
-    loadTrack(chart, saved.id); // also closes any open panel (including Library) — see loadTrack()'s hideAllPanels()
+    saveSong(localStorage, chart);
+    importStatus.textContent = `Added "${chart.title}" — ${chart.notes.length} notes, ${chart.bpm} BPM. Click it in the list to play.`;
+    // Deliberately does NOT load and start the track: importing lives on the
+    // Manage screen, so adding a file is a library edit, not a "play this
+    // now" request. Staying put lets several files go in during one visit —
+    // each lands at the top of the list (newest first) and starts pinned, so
+    // anything that shouldn't be in the quick list can be unpinned right
+    // here without a second trip.
+    renderManageList();
+    // Keep the Add button under the cursor/focus rather than letting the
+    // rebuilt list shift focus onto a song row, so repeat adds stay quick.
+    menuFocusIndex = Math.max(0, manageMenu.indexOf(loadMidiButton));
+    updateMenuFocusUI();
   } catch (err) {
-    importStatus.textContent = `Couldn't load "${file.name}": ${(err as Error).message}`;
+    importStatus.textContent = `Couldn't add "${file.name}": ${(err as Error).message}`;
   }
 });
 

@@ -49,7 +49,9 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
 
 ## What it does
 
-- **Import your own charts** via Songs → Manage library → Add track. `.mid` /
+- **Import your own charts** via Songs → Manage library → Add track. Adding
+  keeps you on that screen, so several files can go in one after another;
+  click a track in the list when you actually want to play it. `.mid` /
   `.midi`, and uncompressed `.musicxml` / `.xml`. Compressed `.mxl`
   (MuseScore and Finale's default) is *not* supported — export uncompressed.
 - **Song library, split in two.** Songs is a short *quick list* of the tracks
