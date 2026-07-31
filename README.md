@@ -88,9 +88,10 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
   silence, but only when the chart actually expects notes, so a genuine rest
   won't trigger it.
 - **Metronome and audible count-in**, both optional.
-- **Progress bar** along the top of the note field, so you can see how far
-  through a track you are at a glance. While looping it tracks the current
-  repetition rather than the whole song.
+- **Minimap** across the top of the note field: the whole chart in miniature,
+  with a box marking the slice you're currently looking at — so you can see
+  what's coming and how far through you are at a glance. While looping it
+  maps the current repetition rather than the whole song.
 - **Hints off once you know the app.** Settings → Hints hides the
   "how this screen works" copy and the drum-pad legend. Status output —
   import results, errors, empty-list explanations — is never hidden.
