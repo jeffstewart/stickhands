@@ -69,6 +69,9 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
   screen, no menus. Manage library (inside Songs) holds everything you've
   ever imported, where you add tracks, pin them into the quick list, delete
   them, and compare best score and run count across every track at a glance.
+- **Rearrange the set list.** Drag tracks in the quick list, or highlight one
+  and use Tom 1 / Tom 2 to move it up and down. Next Track follows that
+  order, and new imports are appended to the end.
 - **Practice looping.** Mark a bar range — either with the sliders or by
   dragging the ends of the track overview — and loop it. "No break" mode
   scrolls the next repetition into view before the current one ends, so the

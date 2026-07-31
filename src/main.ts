@@ -17,7 +17,7 @@ import type { MidiNoteEvent } from "./midi/MidiSource";
 import { LANE_TO_NAV, type NavDirection } from "./engine/navigation";
 import { parseMidiFile } from "./import/midiImport";
 import { parseMusicXmlFile } from "./import/musicXmlImport";
-import { deleteSong, listPinned, listSongs, saveSong, setPinned } from "./storage/songLibrary";
+import { deleteSong, listPinned, listSongs, reorderPinned, saveSong, setPinned } from "./storage/songLibrary";
 import { bestScore, chartKey, listAttempts, recordAttempt } from "./storage/scoreHistory";
 import { loadSettings, saveSettings } from "./storage/settings";
 import { DrumSynth } from "./audio/DrumSynth";
@@ -442,6 +442,24 @@ function closeLoopEditor(): void {
 // Rebuilds the on-screen song list and libraryMenu from scratch — simpler
 // than diffing, and cheap enough (a handful of buttons) to redo on every
 // open (or after a delete) rather than trying to keep it in sync incrementally.
+// Which track is mid-drag, so a drop knows what to move. Module-level
+// because dragstart and drop fire on different elements.
+let draggingSongId: string | null = null;
+
+function moveQuickListTrack(id: string, delta: -1 | 1): void {
+  const ids = listPinned(localStorage).map((s) => s.id);
+  const from = ids.indexOf(id);
+  const to = from + delta;
+  if (from === -1 || to < 0 || to >= ids.length) return; // already at an end
+  ids.splice(to, 0, ...ids.splice(from, 1));
+  reorderPinned(localStorage, ids);
+  renderLibraryList();
+  // Follow the track that moved rather than the position it left, so
+  // repeated nudges keep pushing the same one along.
+  menuFocusIndex = Math.max(0, libraryMenu.findIndex((b) => b.dataset.songId === id));
+  updateMenuFocusUI();
+}
+
 function renderLibraryList(): void {
   libraryList.innerHTML = "";
   const songs = listPinned(localStorage);
@@ -449,15 +467,49 @@ function renderLibraryList(): void {
   libraryMenu = songs.map((song) => {
     // Just the title, nothing else: this is the "pick something and play"
     // screen, so management (deleting, pinning) lives in Manage library
-    // rather than crowding every row here.
+    // rather than crowding every row here. Reordering is a gesture — drag,
+    // or the toms while highlighted — for the same reason: no per-row
+    // buttons to read past.
     const button = document.createElement("button");
     button.type = "button";
     button.className = "song-item";
+    button.dataset.songId = song.id;
+    button.draggable = true;
     button.textContent = `${song.chart.title} — ${song.chart.notes.length} notes, ${song.chart.bpm} BPM`;
     button.addEventListener("click", () => {
       loadTrack(song.chart, song.id);
       closeLibrary();
     });
+
+    button.addEventListener("dragstart", (e) => {
+      draggingSongId = song.id;
+      button.classList.add("dragging");
+      e.dataTransfer?.setData("text/plain", song.id); // Firefox won't start a drag without payload
+    });
+    button.addEventListener("dragend", () => {
+      draggingSongId = null;
+      button.classList.remove("dragging");
+    });
+    button.addEventListener("dragover", (e) => {
+      if (!draggingSongId || draggingSongId === song.id) return;
+      e.preventDefault(); // without this the drop is refused
+      button.classList.add("drop-target");
+    });
+    button.addEventListener("dragleave", () => button.classList.remove("drop-target"));
+    button.addEventListener("drop", (e) => {
+      e.preventDefault();
+      button.classList.remove("drop-target");
+      if (!draggingSongId || draggingSongId === song.id) return;
+      const ids = listPinned(localStorage).map((s) => s.id);
+      const from = ids.indexOf(draggingSongId);
+      const to = ids.indexOf(song.id);
+      if (from === -1 || to === -1) return;
+      ids.splice(to, 0, ...ids.splice(from, 1));
+      reorderPinned(localStorage, ids);
+      renderLibraryList();
+      updateMenuFocusUI();
+    });
+
     libraryList.appendChild(button);
     return button;
   });
@@ -761,6 +813,15 @@ function handleNavDirection(dir: NavDirection): void {
       // (or the toms) can walk through every item.
       const focused = menu[menuFocusIndex];
       if (!focused) break; // empty menu (e.g. no saved songs yet)
+      // Exception: on a quick-list track the toms rearrange the set list
+      // instead. Nothing is lost — up/down still walks the list — and it
+      // gives reordering a drum-pad gesture without putting a pair of
+      // buttons on every row.
+      const quickListSongId = menuLevel === "library" ? focused.dataset.songId : undefined;
+      if (quickListSongId) {
+        moveQuickListTrack(quickListSongId, dir === "right" ? 1 : -1);
+        break;
+      }
       if (focused instanceof HTMLSelectElement) cycleSelect(focused, dir === "right" ? 1 : -1);
       else if (focused instanceof HTMLInputElement) stepRange(focused, dir === "right" ? 1 : -1);
       else moveFocus(dir === "right" ? 1 : -1, menu);

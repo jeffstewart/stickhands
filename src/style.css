@@ -121,6 +121,20 @@ body.hide-hints .nav-hint {
   text-align: left;
 }
 
+.song-item[draggable="true"] {
+  cursor: grab;
+}
+
+.song-item.dragging {
+  opacity: 0.45;
+}
+
+/* Marks where the dragged track will land. */
+.song-item.drop-target {
+  outline: 2px solid #4da3ff;
+  outline-offset: 1px;
+}
+
 .song-row {
   display: flex;
   gap: 6px;
