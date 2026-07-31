@@ -48,3 +48,11 @@ export function sliceChart(chart: Chart, startMs: number, endMs: number): Chart 
     timeSignature: chart.timeSignature, // a loop is still in the same meter as its source
   };
 }
+
+// Tempo as stored in a file is rarely exactly what was intended: MIDI keeps
+// it as microseconds-per-quarter-note, so 95 BPM round-trips to
+// 95.00014250021376. Two decimals strips that noise while leaving a
+// deliberately fractional tempo (95.5) alone.
+export function roundBpm(bpm: number): number {
+  return Math.round(bpm * 100) / 100;
+}

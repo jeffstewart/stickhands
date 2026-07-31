@@ -1,6 +1,7 @@
 import { Midi } from "@tonejs/midi";
 import type { Chart, ChartNote } from "../engine/chart";
 import { DEFAULT_GM_DRUM_MAP } from "../engine/lanes";
+import { roundBpm } from "../engine/chart";
 
 // @tonejs/midi already resolves each note's tick position against the
 // file's tempo map into absolute seconds (Note.time) — exactly the "resolve
@@ -38,7 +39,12 @@ export function chartFromMidi(midi: Midi, title?: string): Chart {
     throw new Error("No recognizable drum notes found in this MIDI file.");
   }
 
-  const bpm = midi.header.tempos[0]?.bpm ?? 120; // first tempo event; mid-song tempo changes aren't reflected in the single-BPM tempo slider yet
+  // First tempo event; mid-song tempo changes aren't reflected in the
+  // single-BPM tempo slider yet. Rounded because MIDI stores tempo as
+  // microseconds-per-quarter-note, so a file written at 95 BPM reads back
+  // as 95.00014250021376 — noise that would otherwise reach the UI.
+  // Two decimals keeps a genuinely fractional tempo like 95.5 intact.
+  const bpm = roundBpm(midi.header.tempos[0]?.bpm ?? 120);
   const lastNoteMs = notes[notes.length - 1]!.timeMs;
   const durationMs = Math.max(Math.round(midi.duration * 1000), lastNoteMs + 500);
 

@@ -49,15 +49,21 @@ export function listSongs(store: KeyValueStore): SavedSong[] {
 }
 
 export function saveSong(store: KeyValueStore, chart: Chart): SavedSong {
+  const existing = readAll(store);
+  // Importing a folder of files runs several saves inside one millisecond,
+  // which would leave them tied on importedAt and ordered arbitrarily by the
+  // sort. Nudging past the newest existing entry keeps a batch in the order
+  // it was picked.
+  const importedAt = Math.max(Date.now(), ...existing.map((s) => s.importedAt + 1), 0);
   const song: SavedSong = {
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     chart,
-    importedAt: Date.now(),
+    importedAt,
     // A freshly imported song is one you're about to play, so it starts in
     // the quick list rather than needing a trip to the library first.
     pinned: true,
   };
-  writeAll(store, [...readAll(store), song]);
+  writeAll(store, [...existing, song]);
   return song;
 }
 

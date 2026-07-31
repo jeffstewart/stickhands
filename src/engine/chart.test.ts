@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sliceChart, sortChart } from "./chart";
+import { roundBpm, sliceChart, sortChart } from "./chart";
 import type { Chart } from "./chart";
 
 function chart(notes: Chart["notes"]): Chart {
@@ -96,5 +96,20 @@ describe("sliceChart", () => {
     const input = chart([{ lane: "kick", timeMs: 1200, velocity: 100 }]);
     sliceChart(input, 1000, 2000);
     expect(input.notes[0]!.timeMs).toBe(1200);
+  });
+});
+
+describe("roundBpm", () => {
+  // MIDI stores tempo as microseconds per quarter note, so a file written at
+  // a whole-number BPM reads back with floating-point noise that would
+  // otherwise show up in the library list as "95.00014250021376 BPM".
+  it("strips round-trip noise from whole-number tempos", () => {
+    expect(roundBpm(95.00014250021376)).toBe(95);
+    expect(roundBpm(90.00009000009)).toBe(90);
+  });
+
+  it("leaves a genuinely fractional tempo alone", () => {
+    expect(roundBpm(95.5)).toBe(95.5);
+    expect(roundBpm(128.25)).toBe(128.25);
   });
 });

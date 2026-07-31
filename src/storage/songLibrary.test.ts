@@ -127,3 +127,14 @@ describe("pinning", () => {
     expect(listPinned(store)).toHaveLength(1);
   });
 });
+
+describe("import ordering", () => {
+  // Bulk-importing a folder runs many saves within one millisecond; without
+  // a tie-break they'd sort arbitrarily and a numbered lesson set would come
+  // back shuffled.
+  it("keeps a same-millisecond batch in the order it was added", () => {
+    const store = fakeStore();
+    for (const title of ["A", "B", "C", "D"]) saveSong(store, makeChart(title));
+    expect(listSongs(store).map((s) => s.chart.title)).toEqual(["D", "C", "B", "A"]);
+  });
+});

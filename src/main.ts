@@ -1401,28 +1401,42 @@ closeScoresButton.addEventListener("click", closeScores);
 loadMidiButton.addEventListener("click", () => midiFileInput.click());
 
 midiFileInput.addEventListener("change", async () => {
-  const file = midiFileInput.files?.[0];
+  const files = [...(midiFileInput.files ?? [])];
   midiFileInput.value = ""; // reset so re-selecting the same file still fires "change"
-  if (!file) return;
-  try {
-    const isMusicXml = /\.(musicxml|xml)$/i.test(file.name);
-    const chart = isMusicXml ? await parseMusicXmlFile(file) : await parseMidiFile(file);
-    saveSong(localStorage, chart);
-    importStatus.textContent = `Added "${chart.title}" — ${chart.notes.length} notes, ${chart.bpm} BPM. Click it in the list to play.`;
-    // Deliberately does NOT load and start the track: importing lives on the
-    // Manage screen, so adding a file is a library edit, not a "play this
-    // now" request. Staying put lets several files go in during one visit —
-    // each lands at the top of the list (newest first) and starts pinned, so
-    // anything that shouldn't be in the quick list can be unpinned right
-    // here without a second trip.
-    renderManageList();
-    // Keep the Add button under the cursor/focus rather than letting the
-    // rebuilt list shift focus onto a song row, so repeat adds stay quick.
-    menuFocusIndex = Math.max(0, manageMenu.indexOf(loadMidiButton));
-    updateMenuFocusUI();
-  } catch (err) {
-    importStatus.textContent = `Couldn't add "${file.name}": ${(err as Error).message}`;
+  if (files.length === 0) return;
+
+  // One file at a time would make adding a folder of lessons a chore, so the
+  // input takes a multi-selection. Each file is handled independently: a
+  // single unparseable one is reported without discarding the rest.
+  const added: string[] = [];
+  const failed: string[] = [];
+  for (const file of files) {
+    try {
+      const isMusicXml = /\.(musicxml|xml)$/i.test(file.name);
+      const chart = isMusicXml ? await parseMusicXmlFile(file) : await parseMidiFile(file);
+      saveSong(localStorage, chart);
+      added.push(chart.title);
+    } catch (err) {
+      failed.push(`${file.name} (${(err as Error).message})`);
+    }
   }
+
+  const parts: string[] = [];
+  if (added.length === 1) parts.push(`Added "${added[0]}" — click it in the list to play.`);
+  else if (added.length > 1) parts.push(`Added ${added.length} tracks.`);
+  if (failed.length > 0) parts.push(`Couldn't add ${failed.length}: ${failed.join("; ")}`);
+  importStatus.textContent = parts.join(" ");
+
+  // Deliberately does NOT load and start a track: importing lives on the
+  // Manage screen, so adding files is a library edit, not a "play this now"
+  // request. Staying put lets several batches go in during one visit — each
+  // lands at the top of the list (newest first) and starts pinned, so
+  // anything that shouldn't be in the quick list can be unpinned right here.
+  renderManageList();
+  // Keep the Add button under focus rather than letting the rebuilt list
+  // shift it onto a song row, so repeat adds stay quick.
+  menuFocusIndex = Math.max(0, manageMenu.indexOf(loadMidiButton));
+  updateMenuFocusUI();
 });
 
 // Restore saved preferences before the first track loads. The selects are

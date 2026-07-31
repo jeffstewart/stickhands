@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "samples": "node tools/extract-samples.mjs"
+    "samples": "node tools/extract-samples.mjs",
+    "lessons": "node tools/generate-lessons.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",

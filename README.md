@@ -55,6 +55,7 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
 | `npm test` | Run the unit tests once |
 | `npm run test:watch` | Watch mode |
 | `npm run samples` | Rebuild the drum samples from upstream (see below) |
+| `npm run lessons` | Regenerate the practice lessons (see below) |
 
 ## What it does
 
@@ -100,6 +101,33 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
   app's drum sounds while keeping the count-in and metronome. Feed the app's
   audio into your module's aux-in and you get the click track over your
   kit's own voices, with no doubled drums.
+
+## Practice lessons
+
+`public/lessons/` ships twelve short exercises that build up from single-limb
+timing to grooves to fills:
+
+| | | |
+|---|---|---|
+| 01 Quarter Notes | 05 Rock Beat with Extra Kick | 09 Ride Groove |
+| 02 Eighth Notes | 06 Four on the Floor | 10 Snare Fill |
+| 03 Kick and Snare | 07 Half Time Groove | 11 Tom Fill |
+| 04 Basic Rock Beat | 08 Shuffle Groove | 12 Fill with Crash |
+
+Add them via Songs → Manage library → Add track — the picker takes a
+multi-selection, so you can grab all twelve at once.
+
+They're **original exercises**, not transcriptions. Everything in them is
+stock teaching vocabulary — quarter notes, an eighth-note rock beat,
+four-on-the-floor, a shuffle, a descending tom fill — which is generic
+rhythmic material rather than anyone's composition, the drumming equivalent
+of practising scales. So they carry no attribution or royalty obligation and
+can ship with the app.
+
+`npm run lessons` regenerates them from `tools/generate-lessons.mjs`; edit the
+`LESSONS` table there to change the syllabus. Patterns are written as
+positions on a per-bar grid (16 for sixteenths, 12 for triplets), which makes
+a groove a couple of readable lines.
 
 ## How it's put together
 

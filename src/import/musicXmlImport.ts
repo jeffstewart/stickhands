@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import type { Chart, ChartNote } from "../engine/chart";
 import { DEFAULT_GM_DRUM_MAP } from "../engine/lanes";
+import { roundBpm } from "../engine/chart";
 
 // MusicXML measures interleave <note>, <backup>, <forward>, <attributes>, and
 // <direction> elements, and correctly reconstructing playback position
@@ -211,7 +212,7 @@ export function chartFromMusicXml(xml: string, title?: string): Chart {
     throw new Error("No recognizable drum notes found in this MusicXML file.");
   }
 
-  const bpm = extracted.find((e) => e.bpm !== null)?.bpm ?? 120;
+  const bpm = roundBpm(extracted.find((e) => e.bpm !== null)?.bpm ?? 120);
   const timeSignature = extracted.find((e) => e.timeSignature !== null)?.timeSignature ?? undefined;
   const maxEndMs = Math.max(...extracted.map((e) => e.endMs));
   const lastNoteMs = notes[notes.length - 1]!.timeMs;
