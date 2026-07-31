@@ -51,6 +51,13 @@ const DEFAULT_OPTIONS: RendererOptions = {
 const EXTRA_HIT_COLOR = "255, 71, 87"; // rgb components; alpha applied separately for the fade
 const LOOP_BOUNDARY_COLOR = "#ffb347"; // amber — distinct from note/hit-line colors, marks where a seamless loop wraps
 
+// Progress bar along the top edge. Deliberately drawn in the app's
+// secondary-text grey rather than any of the note colours: it's chrome, and
+// shouldn't read as gameplay you're meant to hit.
+const PROGRESS_TRACK_COLOR = "#2a2d36";
+const PROGRESS_FILL_COLOR = "#8a8f9c";
+const PROGRESS_BAR_HEIGHT = 4;
+
 // A hit that landed on a recognized pad but matched no pending chart note
 // (see ScoringEngine's "extra" stat) — has no ChartNote to attach a judgment
 // to, so it's tracked separately as a short-lived, timestamped marker rather
@@ -310,5 +317,20 @@ export class ChartRenderer {
       ctx.stroke();
       ctx.lineWidth = 1;
     }
+
+    // How far into the track we are, along the very top edge — close enough
+    // to the falling notes to read at a glance without looking away from the
+    // hit line. Measured against the loaded chart's own duration, so during
+    // practice looping it shows position within the current repetition,
+    // which is what you actually want while looping a bar or two.
+    //
+    // Drawn last so nothing paints over it, and clamped at both ends: the
+    // count-in runs at negative chart time, and a finished track keeps
+    // ticking past its duration until you restart.
+    const progress = Math.min(1, Math.max(0, nowMs / Math.max(1, this.chart.durationMs)));
+    ctx.fillStyle = PROGRESS_TRACK_COLOR;
+    ctx.fillRect(0, 0, canvas.width, PROGRESS_BAR_HEIGHT);
+    ctx.fillStyle = PROGRESS_FILL_COLOR;
+    ctx.fillRect(0, 0, canvas.width * progress, PROGRESS_BAR_HEIGHT);
   }
 }
