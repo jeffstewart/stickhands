@@ -1,18 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Stickhands">
   <title>Stickhands</title>
   <!--
-    Matched grip, drawn from a real reference rather than guessed: the thumb
-    lies ALONG the shaft pointing at the tip (offset a little so a sliver of
-    stick still shows beside it), the fingers curl underneath with only their
-    tips scalloping the far edge, and the butt of the stick protrudes past the
-    heel of the hand. An earlier version had the thumb crossing over the
-    fingers, which is not how anyone holds a stick.
+    Matched grip, drawn from a reference photo rather than guessed. Three
+    things this went through before it was right, so they don't get undone:
+
+    1. The thumb lies ALONG the shaft pointing at the tip, not across the
+       curled fingers. It's offset from the shaft's centre line so a sliver of
+       stick still shows beside it instead of being fully occluded.
+    2. The thumb is rooted at the SIDE of the palm, low toward the heel, and
+       tapers from a wide thenar base to a rounded pad on the stick. Rooting it
+       mid-palm — where the fingers meet the hand — reads as a fifth finger.
+    3. The butt of the stick protrudes past the heel of the hand. Without it
+       the hand looks like the end of the stick rather than a grip on it.
 
     The second arm is mirrored (translate + scale(-1 1)), not rotated the other
     way — rotating both by ±40 gives two right hands.
 
     Hand colour is deliberately non-literal warm rust; matching a skin tone is
-    a choice this mark doesn't need to make.
+    a choice this mark doesn't need to make. Each thumb carries a same-colour
+    round-joined stroke purely to soften its corners.
   -->
   <rect width="64" height="64" rx="14" fill="#14161c"/>
 
@@ -26,7 +32,10 @@
       <path d="M33.6 48.8Q36.4 49.2 39.3 48.7"/>
       <path d="M33.8 52.2Q36.4 52.6 39 52.1"/>
     </g>
-    <path d="M29.9 48.4 30.7 33.6" stroke="#e58057" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <path fill="#e58057" stroke="#e58057" stroke-width="1.8" stroke-linejoin="round"
+          d="M20.17 49.44L27.65 35.8Q31.84 33.7 33.15 38.2L28.23 52.96Q22.76 54.5 20.17 49.44Z"/>
+    <path d="M24.42 44.2Q26.9 44.6 29.18 46.28" stroke="rgba(0,0,0,.2)" stroke-width=".9"
+          stroke-linecap="round" fill="none"/>
   </g>
 
   <!-- front arm: mirrored so the two read as a left and a right, lighter to sit in front -->
@@ -39,6 +48,9 @@
       <path d="M33.6 48.8Q36.4 49.2 39.3 48.7"/>
       <path d="M33.8 52.2Q36.4 52.6 39 52.1"/>
     </g>
-    <path d="M29.9 48.4 30.7 33.6" stroke="#f2926b" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <path fill="#f2926b" stroke="#f2926b" stroke-width="1.8" stroke-linejoin="round"
+          d="M20.17 49.44L27.65 35.8Q31.84 33.7 33.15 38.2L28.23 52.96Q22.76 54.5 20.17 49.44Z"/>
+    <path d="M24.42 44.2Q26.9 44.6 29.18 46.28" stroke="rgba(0,0,0,.17)" stroke-width=".9"
+          stroke-linecap="round" fill="none"/>
   </g>
 </svg>
