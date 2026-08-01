@@ -1,56 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Stickhands">
   <title>Stickhands</title>
   <!--
-    Matched grip, drawn from a reference photo rather than guessed. Three
-    things this went through before it was right, so they don't get undone:
+    Matched grip, drawn from a reference photo rather than guessed, through
+    several corrections that shouldn't get undone:
 
-    1. The thumb lies ALONG the shaft pointing at the tip, not across the
-       curled fingers. It's offset from the shaft's centre line so a sliver of
-       stick still shows beside it instead of being fully occluded.
-    2. The thumb is rooted at the SIDE of the palm, low toward the heel, and
-       tapers from a wide thenar base to a rounded pad on the stick. Rooting it
-       mid-palm — where the fingers meet the hand — reads as a fifth finger.
-    3. The butt of the stick protrudes past the heel of the hand. Without it
-       the hand looks like the end of the stick rather than a grip on it.
+    1. The stick is thin and long (rx 3.1 tip, long taper) — an early pass
+       drew it as a thick short club, nothing like a real drumstick.
+    2. Only the fingerTIPS show, as four small knuckle bumps overlapping the
+       stick's near edge. The fingers themselves are hidden behind the stick,
+       not drawn as a fist in front of it.
+    3. The thumb is on the OPPOSITE side of the stick from the fingertips, and
+       its fleshy base starts level with the bottom (pinky) fingertip — not
+       mid-palm, which reads as a fifth finger, and not level with the top
+       fingertip, which crosses the grip the wrong way.
+    4. The thumb runs up PAST every fingertip before its rounded tip settles
+       on the stick, with a slight bend partway (the knuckle) rather than
+       being a dead-straight wedge.
+    5. The palm's fleshy mass is asymmetric — it bulges toward the stick side
+       and tucks in tighter on the outer side, not a plain symmetric ellipse.
+    6. Thumb, fingertips and palm are all the SAME fill as each other, so the
+       thumb reads as part of the hand instead of a separate piece laid on
+       top of it.
 
-    The second arm is mirrored (translate + scale(-1 1)), not rotated the other
-    way — rotating both by ±40 gives two right hands.
+    The second arm is mirrored (translate + scale(-1 1)), not rotated the
+    other way — rotating both by ±40 gives two right hands.
 
     Hand colour is deliberately non-literal warm rust; matching a skin tone is
-    a choice this mark doesn't need to make. Each thumb carries a same-colour
-    round-joined stroke purely to soften its corners.
+    a choice this mark doesn't need to make.
   -->
   <rect width="64" height="64" rx="14" fill="#14161c"/>
 
   <!-- back arm -->
   <g transform="rotate(40 32 26)">
-    <ellipse cx="32" cy="7.5" rx="4.4" ry="5" fill="#f2cd94"/>
-    <path d="M29.1 11.3h5.8l1.4 45.5q0 3-4.3 3t-4.3-3z" fill="#f2cd94"/>
-    <path fill="#d1603f" d="M23.6 41Q31.4 39 38.5 41.3C41.3 42.3 41.5 44.1 39.1 45.1C41.7 46 41.7 47.8 39.3 48.7C41.5 49.6 41.5 51.3 39 52.1C40.7 53.1 40.1 54.7 37.8 55.1Q30.7 56.5 24.9 54.7Q22.1 53.7 22.1 50.5Q21.9 44.6 23.6 41Z"/>
-    <g stroke="rgba(0,0,0,.3)" stroke-width=".95" stroke-linecap="round" fill="none">
-      <path d="M33.8 45.2Q36.5 45.6 39.1 45.1"/>
-      <path d="M33.6 48.8Q36.4 49.2 39.3 48.7"/>
-      <path d="M33.8 52.2Q36.4 52.6 39 52.1"/>
+    <ellipse cx="32" cy="4.5" rx="3.1" ry="3.6" fill="#f2cd94"/>
+    <path d="M29.9 7.6h4.2l1.7 55.4q0 2.4-3.8 2.4t-3.8-2.4z" fill="#f2cd94"/>
+    <g fill="#d1603f">
+      <ellipse cx="36.1" cy="41.6" rx="3.1" ry="2.5" transform="rotate(-8 36.1 41.6)"/>
+      <ellipse cx="36.6" cy="46.1" rx="3.3" ry="2.6" transform="rotate(-4 36.6 46.1)"/>
+      <ellipse cx="36.4" cy="50.6" rx="3.2" ry="2.5" transform="rotate(2 36.4 50.6)"/>
+      <ellipse cx="35.7" cy="54.9" rx="2.7" ry="2.1" transform="rotate(6 35.7 54.9)"/>
     </g>
-    <path fill="#e58057" stroke="#e58057" stroke-width="1.8" stroke-linejoin="round"
-          d="M20.17 49.44L27.65 35.8Q31.84 33.7 33.15 38.2L28.23 52.96Q22.76 54.5 20.17 49.44Z"/>
-    <path d="M24.42 44.2Q26.9 44.6 29.18 46.28" stroke="rgba(0,0,0,.2)" stroke-width=".9"
-          stroke-linecap="round" fill="none"/>
+    <path fill="#d1603f" d="M27 50.6C30.5 51 30.8 55.5 28.6 57.3C27.5 59.8 24 60.5 22 58.5C19.8 56.3 20.3 52.3 23 50.8C24.5 50 25.8 50.3 27 50.6Z"/>
+    <path fill="#d1603f" d="M28.49 56.47Q31.42 46.39 32.09 35.38Q30.9 32.72 29.11 35.02Q27.18 45.21 21.91 53.53Q25 58.5 28.49 56.47Z"/>
   </g>
 
   <!-- front arm: mirrored so the two read as a left and a right, lighter to sit in front -->
   <g transform="translate(64 0) scale(-1 1) rotate(40 32 26)">
-    <ellipse cx="32" cy="7.5" rx="4.4" ry="5" fill="#ffdcab"/>
-    <path d="M29.1 11.3h5.8l1.4 45.5q0 3-4.3 3t-4.3-3z" fill="#ffdcab"/>
-    <path fill="#e4744d" d="M23.6 41Q31.4 39 38.5 41.3C41.3 42.3 41.5 44.1 39.1 45.1C41.7 46 41.7 47.8 39.3 48.7C41.5 49.6 41.5 51.3 39 52.1C40.7 53.1 40.1 54.7 37.8 55.1Q30.7 56.5 24.9 54.7Q22.1 53.7 22.1 50.5Q21.9 44.6 23.6 41Z"/>
-    <g stroke="rgba(0,0,0,.26)" stroke-width=".95" stroke-linecap="round" fill="none">
-      <path d="M33.8 45.2Q36.5 45.6 39.1 45.1"/>
-      <path d="M33.6 48.8Q36.4 49.2 39.3 48.7"/>
-      <path d="M33.8 52.2Q36.4 52.6 39 52.1"/>
+    <ellipse cx="32" cy="4.5" rx="3.1" ry="3.6" fill="#ffdcab"/>
+    <path d="M29.9 7.6h4.2l1.7 55.4q0 2.4-3.8 2.4t-3.8-2.4z" fill="#ffdcab"/>
+    <g fill="#e4744d">
+      <ellipse cx="36.1" cy="41.6" rx="3.1" ry="2.5" transform="rotate(-8 36.1 41.6)"/>
+      <ellipse cx="36.6" cy="46.1" rx="3.3" ry="2.6" transform="rotate(-4 36.6 46.1)"/>
+      <ellipse cx="36.4" cy="50.6" rx="3.2" ry="2.5" transform="rotate(2 36.4 50.6)"/>
+      <ellipse cx="35.7" cy="54.9" rx="2.7" ry="2.1" transform="rotate(6 35.7 54.9)"/>
     </g>
-    <path fill="#f2926b" stroke="#f2926b" stroke-width="1.8" stroke-linejoin="round"
-          d="M20.17 49.44L27.65 35.8Q31.84 33.7 33.15 38.2L28.23 52.96Q22.76 54.5 20.17 49.44Z"/>
-    <path d="M24.42 44.2Q26.9 44.6 29.18 46.28" stroke="rgba(0,0,0,.17)" stroke-width=".9"
-          stroke-linecap="round" fill="none"/>
+    <path fill="#e4744d" d="M27 50.6C30.5 51 30.8 55.5 28.6 57.3C27.5 59.8 24 60.5 22 58.5C19.8 56.3 20.3 52.3 23 50.8C24.5 50 25.8 50.3 27 50.6Z"/>
+    <path fill="#e4744d" d="M28.49 56.47Q31.42 46.39 32.09 35.38Q30.9 32.72 29.11 35.02Q27.18 45.21 21.91 53.53Q25 58.5 28.49 56.47Z"/>
   </g>
 </svg>
