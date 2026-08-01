@@ -16,6 +16,16 @@ body {
   text-align: center;
 }
 
+/* Flex rather than an inline image so the mark centres on the cap height
+   instead of sitting on the text baseline. */
+h1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  letter-spacing: -0.01em;
+}
+
 canvas {
   background: #111318;
   border: 1px solid #2a2d36;
