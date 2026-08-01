@@ -61,6 +61,22 @@ const MINIMAP_NOTE_COLOR = "#4a5570";
 const MINIMAP_VIEWPORT_FILL = "rgba(138, 143, 156, 0.16)";
 const MINIMAP_VIEWPORT_EDGE = "#8a8f9c";
 
+// Judged notes light up on the strip, so a glance across the whole track
+// shows which sections actually went well — the point of colouring it at
+// all. Unplayed notes stay dim, so the minimap is quiet until you've played
+// something and the colour that appears is the signal.
+//
+// Miss deliberately does NOT match the note field, where it greys out: there
+// a missed note is fading away and should recede, but here it's the single
+// most useful thing to spot, so it's the loudest colour on the strip.
+const MINIMAP_JUDGMENT_COLOR: Record<Judgment, string> = {
+  pending: MINIMAP_NOTE_COLOR,
+  perfect: "#3ddc84",
+  early: "#ffd23d",
+  late: "#ff8c3d",
+  miss: "#ff6b6b",
+};
+
 // A hit that landed on a recognized pad but matched no pending chart note
 // (see ScoringEngine's "extra" stat) — has no ChartNote to attach a judgment
 // to, so it's tracked separately as a short-lived, timestamped marker rather
@@ -248,10 +264,10 @@ export class ChartRenderer {
     ctx.fillStyle = MINIMAP_BG_COLOR;
     ctx.fillRect(0, 0, width, MINIMAP_HEIGHT);
 
-    ctx.fillStyle = MINIMAP_NOTE_COLOR;
     for (const note of this.chart.notes) {
       const x = (note.timeMs / durationMs) * width;
       const y = this.laneOrder.indexOf(note.lane) * laneHeight;
+      ctx.fillStyle = MINIMAP_JUDGMENT_COLOR[this.judgments.get(note)];
       ctx.fillRect(x, y + laneHeight * 0.2, 1.5, laneHeight * 0.6);
     }
 
