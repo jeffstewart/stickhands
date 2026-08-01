@@ -29,6 +29,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   debugReadout: false,
 };
 
+// Still "drumhero" post-rename on purpose — see songLibrary.ts for the
+// reasoning; renaming it would reset everyone's saved settings.
 const STORAGE_KEY = "drumhero.settings.v1";
 
 // Merged over the defaults rather than used as-is, so a settings object

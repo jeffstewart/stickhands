@@ -21,6 +21,11 @@ export interface KeyValueStore {
   setItem(key: string, value: string): void;
 }
 
+// Deliberately still "drumhero" after the rename to Stickhands: this key is
+// the only handle on a user's existing imported library, and renaming it
+// would silently orphan every track they've already added. It's invisible in
+// the UI, so the inconsistency costs nothing. If it's ever renamed, it needs
+// a real read-old-key-then-migrate step, not a find-and-replace.
 const STORAGE_KEY = "drumhero.library.v1";
 
 function readAll(store: KeyValueStore): SavedSong[] {

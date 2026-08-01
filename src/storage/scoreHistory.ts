@@ -19,6 +19,8 @@ export interface Attempt {
   totalNotes: number;
 }
 
+// Still "drumhero" post-rename on purpose — see songLibrary.ts for the
+// reasoning; renaming it would throw away every recorded attempt.
 const STORAGE_KEY = "drumhero.scores.v1";
 // Enough to see a trend without letting one heavily-practised track grow
 // unbounded in localStorage.

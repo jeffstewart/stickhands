@@ -1,8 +1,12 @@
-# Drum Hero
+# Stickhands
 
 A rhythm game for electronic drum kits. Notes fall toward a hit line, you
 play along on a real kit over Web MIDI, and you get per-note hit / early /
 late / miss feedback.
+
+The name is the design brief: every screen — library, loop editor, score
+history, set-list reordering — is reachable with the sticks still in your
+hands, so a practice session never makes you reach for the mouse.
 
 The point of difference versus subscription apps like Melodics is that you
 bring your own charts: import any MIDI or MusicXML file instead of renting
