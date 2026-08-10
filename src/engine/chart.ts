@@ -1,4 +1,5 @@
 import type { Lane } from "./lanes";
+import type { AccompanimentPart } from "./accompaniment";
 
 // A single note in the normalized, playback-ready chart. All timing is already
 // resolved to absolute milliseconds from the start of the track — no ticks,
@@ -22,6 +23,11 @@ export interface Chart {
   // beat's note value (4 = quarter note, 8 = eighth note, ...), matching a
   // time signature's denominator.
   timeSignature?: { beatsPerBar: number; beatUnit: number };
+  // The song's other instrument parts (guitar, bass, ...), played back as
+  // audio in sync with the practice clock — not rendered as falling notes,
+  // not scored. Absent for charts with no recognized non-drum parts (most
+  // hand-authored or drum-only imports).
+  accompaniment?: AccompanimentPart[];
 }
 
 export function sortChart(chart: Chart): Chart {
@@ -39,6 +45,18 @@ export function sliceChart(chart: Chart, startMs: number, endMs: number): Chart 
   const notes = chart.notes
     .filter((n) => n.timeMs >= startMs && n.timeMs < endMs)
     .map((n) => ({ ...n, timeMs: n.timeMs - startMs }));
+  // Same onset-in-window rule as notes above, plus one wrinkle notes doesn't
+  // have: a sustained note (a rung chord) can start inside the window and
+  // ring past it. durationMs is clamped to the window's own end so a loop
+  // never lets a chord bleed on top of the next rep's downbeat — computed
+  // against n.timeMs (the pre-rebase, original-timeline value) before the
+  // new object's timeMs below replaces it.
+  const accompaniment = chart.accompaniment?.map((part) => ({
+    ...part,
+    notes: part.notes
+      .filter((n) => n.timeMs >= startMs && n.timeMs < endMs)
+      .map((n) => ({ ...n, timeMs: n.timeMs - startMs, durationMs: Math.min(n.durationMs, endMs - n.timeMs) })),
+  }));
   return {
     title: `${chart.title} (loop)`,
     sourceFormat: chart.sourceFormat,
@@ -46,6 +64,7 @@ export function sliceChart(chart: Chart, startMs: number, endMs: number): Chart 
     durationMs: endMs - startMs,
     notes,
     timeSignature: chart.timeSignature, // a loop is still in the same meter as its source
+    accompaniment,
   };
 }
 

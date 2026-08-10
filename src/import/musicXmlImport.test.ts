@@ -264,3 +264,106 @@ describe("chartFromMusicXml", () => {
     expect(() => chartFromMusicXml("<not-a-score/>")).toThrow(/doesn't look like/i);
   });
 });
+
+// A pitched (non-percussion) quarter note (duration=4 at divisions=4).
+function pitchedNote(step: string, octave: number, duration = 4): string {
+  return `<note><pitch><step>${step}</step><octave>${octave}</octave></pitch><duration>${duration}</duration></note>`;
+}
+
+// A drum part (P1, satisfies "at least one drum note") plus one other part
+// (P2), whose <score-part> is built from `partExtra` so each test can freely
+// vary or omit <midi-instrument>.
+function withAccompanimentPart(opts: { partExtra: string; measureContent: string }): string {
+  return `<?xml version="1.0"?>
+<score-partwise>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Drums</part-name>
+      <midi-instrument id="P1-I1"><midi-unpitched>37</midi-unpitched></midi-instrument>
+    </score-part>
+    <score-part id="P2">
+      ${opts.partExtra}
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>4</divisions></attributes>
+      ${note("P1-I1")}
+    </measure>
+  </part>
+  <part id="P2">
+    <measure number="1">
+      <attributes><divisions>4</divisions></attributes>
+      ${opts.measureContent}
+    </measure>
+  </part>
+</score-partwise>`;
+}
+
+describe("chartFromMusicXml accompaniment", () => {
+  it("extracts a pitched part via its <midi-instrument><midi-program>", () => {
+    const xml = withAccompanimentPart({
+      partExtra: `<part-name>Bass</part-name><midi-instrument id="P2-I1"><midi-program>34</midi-program></midi-instrument>`, // 34 = electric bass (finger), 1-indexed
+      measureContent: pitchedNote("E", 2), // MIDI 40
+    });
+
+    const chart = chartFromMusicXml(xml);
+
+    expect(chart.accompaniment).toEqual([
+      {
+        id: "P2",
+        name: "Bass",
+        instrumentKey: "electric_bass_finger",
+        notes: [{ timeMs: 0, midi: 40, durationMs: 500, velocity: 100 }],
+      },
+    ]);
+  });
+
+  it("falls back to the part name when there's no <midi-instrument> at all — the common real-world case", () => {
+    const xml = withAccompanimentPart({
+      partExtra: `<part-name>El. Guitar</part-name>`,
+      measureContent: pitchedNote("E", 4), // MIDI 64
+    });
+
+    const chart = chartFromMusicXml(xml);
+
+    expect(chart.accompaniment).toEqual([
+      {
+        id: "P2",
+        name: "El. Guitar",
+        instrumentKey: "electric_guitar_clean",
+        notes: [{ timeMs: 0, midi: 64, durationMs: 500, velocity: 100 }],
+      },
+    ]);
+  });
+
+  it("falls back to the part name when <midi-program> doesn't resolve to a supported instrument", () => {
+    const xml = withAccompanimentPart({
+      // program 1 = acoustic grand piano, not in the guitar/bass table — but
+      // the part is still named "Bass Guitar"
+      partExtra: `<part-name>Bass Guitar</part-name><midi-instrument id="P2-I1"><midi-program>1</midi-program></midi-instrument>`,
+      measureContent: pitchedNote("A", 1), // MIDI 33
+    });
+
+    const chart = chartFromMusicXml(xml);
+
+    expect(chart.accompaniment?.[0]?.instrumentKey).toBe("electric_bass_finger");
+  });
+
+  it("does not include the part when neither program nor name resolve", () => {
+    const xml = withAccompanimentPart({
+      partExtra: `<part-name>Vocals</part-name>`,
+      measureContent: pitchedNote("C", 4),
+    });
+
+    const chart = chartFromMusicXml(xml);
+
+    expect(chart.accompaniment).toBeUndefined();
+  });
+
+  it("leaves accompaniment undefined for a drum-only file", () => {
+    const xml = scoreXml({ measureContent: note("P1-I1") });
+    const chart = chartFromMusicXml(xml);
+    expect(chart.accompaniment).toBeUndefined();
+  });
+});

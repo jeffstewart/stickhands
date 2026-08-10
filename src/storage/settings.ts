@@ -16,6 +16,7 @@ export interface AppSettings {
   pausePad: Lane | "";
   metronome: boolean;
   padSounds: boolean;
+  accompaniment: boolean;
   hints: boolean;
   debugReadout: boolean;
 }
@@ -25,6 +26,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pausePad: "",
   metronome: false,
   padSounds: true,
+  accompaniment: true,
   hints: true,
   debugReadout: false,
 };

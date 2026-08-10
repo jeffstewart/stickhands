@@ -165,4 +165,78 @@ describe("chartFromMidi", () => {
 
     expect(chart.timeSignature).toBeUndefined();
   });
+
+  describe("accompaniment", () => {
+    it("extracts a non-drum track whose GM program is a recognized guitar/bass sound", () => {
+      const midi = buildMidi();
+      const drumTrack = midi.addTrack();
+      drumTrack.channel = 9;
+      drumTrack.addNote({ midi: 36, time: 0, velocity: 1 });
+
+      const bassTrack = midi.addTrack();
+      bassTrack.channel = 1;
+      bassTrack.instrument.number = 33; // electric bass (finger)
+      bassTrack.name = "Bass";
+      bassTrack.addNote({ midi: 40, time: 0.5, velocity: 0.8, duration: 0.3 }); // E2
+
+      const chart = chartFromMidi(midi);
+
+      expect(chart.accompaniment).toEqual([
+        {
+          id: "0",
+          name: "Bass",
+          instrumentKey: "electric_bass_finger",
+          notes: [{ timeMs: 500, midi: 40, durationMs: 300, velocity: 102 }],
+        },
+      ]);
+    });
+
+    it("does not include the channel-9 drum track itself as accompaniment", () => {
+      const midi = buildMidi();
+      const drumTrack = midi.addTrack();
+      drumTrack.channel = 9;
+      drumTrack.addNote({ midi: 36, time: 0, velocity: 1 });
+
+      const chart = chartFromMidi(midi);
+
+      expect(chart.accompaniment).toBeUndefined();
+    });
+
+    it("skips a non-drum track whose GM program isn't a recognized guitar/bass sound", () => {
+      const midi = buildMidi();
+      const drumTrack = midi.addTrack();
+      drumTrack.channel = 9;
+      drumTrack.addNote({ midi: 36, time: 0, velocity: 1 });
+
+      const pianoTrack = midi.addTrack();
+      pianoTrack.channel = 1;
+      pianoTrack.instrument.number = 0; // acoustic grand piano — not in the guitar/bass table
+      pianoTrack.addNote({ midi: 60, time: 0, velocity: 1 });
+
+      const chart = chartFromMidi(midi);
+
+      expect(chart.accompaniment).toBeUndefined();
+    });
+
+    it("extracts multiple recognized parts, keyed by their own instrument", () => {
+      const midi = buildMidi();
+      const drumTrack = midi.addTrack();
+      drumTrack.channel = 9;
+      drumTrack.addNote({ midi: 36, time: 0, velocity: 1 });
+
+      const guitarTrack = midi.addTrack();
+      guitarTrack.channel = 1;
+      guitarTrack.instrument.number = 27; // electric guitar (clean)
+      guitarTrack.addNote({ midi: 64, time: 0, velocity: 1, duration: 0.5 });
+
+      const bassTrack = midi.addTrack();
+      bassTrack.channel = 2;
+      bassTrack.instrument.number = 33; // electric bass (finger)
+      bassTrack.addNote({ midi: 40, time: 0, velocity: 1, duration: 0.5 });
+
+      const chart = chartFromMidi(midi);
+
+      expect(chart.accompaniment?.map((p) => p.instrumentKey)).toEqual(["electric_guitar_clean", "electric_bass_finger"]);
+    });
+  });
 });

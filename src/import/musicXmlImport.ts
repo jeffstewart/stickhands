@@ -2,6 +2,12 @@ import { XMLParser } from "fast-xml-parser";
 import type { Chart, ChartNote } from "../engine/chart";
 import { DEFAULT_GM_DRUM_MAP } from "../engine/lanes";
 import { roundBpm } from "../engine/chart";
+import {
+  GM_PROGRAM_TO_INSTRUMENT_KEY,
+  INSTRUMENT_NAME_FALLBACKS,
+  type AccompanimentNote,
+  type AccompanimentPart,
+} from "../engine/accompaniment";
 
 // MusicXML measures interleave <note>, <backup>, <forward>, <attributes>, and
 // <direction> elements, and correctly reconstructing playback position
@@ -50,12 +56,43 @@ function find(nodes: XmlNode[], tag: string): XmlNode | undefined {
 
 interface PartInfo {
   id: string;
+  name: string; // <part-name> text — used for accompaniment part naming and as the name-fallback signal below
   // instrument id -> GM drum-map note number (0-127). Derived from
   // <midi-unpitched>, which MusicXML specifies as 1-128 rather than MIDI's
   // native 0-127 (same off-by-one convention as its midi-channel/midi-program
   // elements) — subtract 1 to land back in DEFAULT_GM_DRUM_MAP's key space.
+  // Non-empty means this part is percussion; empty means it's a candidate for
+  // the accompaniment path below.
   gmNoteByInstrumentId: Map<string, number>;
+  // Resolved accompaniment instrument, tried whether or not this part turns
+  // out to be percussion (cheap; only used when gmNoteByInstrumentId is
+  // empty). Unlike MIDI, <midi-instrument><midi-program> is often missing or
+  // left at its default in real-world exports (MuseScore, Guitar Pro), so
+  // <part-name>/<instrument-name> TEXT is a primary signal here, not a
+  // fallback of last resort the way it would be for MIDI.
+  instrumentKey: string | null;
   measures: XmlNode[];
+}
+
+// MusicXML's <midi-program> is 1-128 (same off-by-one convention as
+// <midi-unpitched> above) — subtract 1 to land in GM_PROGRAM_TO_INSTRUMENT_KEY's
+// 0-127 key space.
+function resolveInstrumentKey(scorePart: XmlNode, partName: string): string | null {
+  for (const midiInstrument of findAll(childrenOf(scorePart), "midi-instrument")) {
+    const program = Number(textOf(find(childrenOf(midiInstrument), "midi-program")));
+    if (!Number.isNaN(program)) {
+      const key = GM_PROGRAM_TO_INSTRUMENT_KEY[program - 1];
+      if (key) return key;
+    }
+  }
+  const instrumentNames = findAll(childrenOf(scorePart), "score-instrument")
+    .map((n) => String(textOf(find(childrenOf(n), "instrument-name")) ?? ""))
+    .join(" ");
+  const candidateText = `${partName} ${instrumentNames}`;
+  for (const { pattern, instrumentKey } of INSTRUMENT_NAME_FALLBACKS) {
+    if (pattern.test(candidateText)) return instrumentKey;
+  }
+  return null;
 }
 
 function parseParts(root: XmlNode[]): PartInfo[] {
@@ -70,24 +107,31 @@ function parseParts(root: XmlNode[]): PartInfo[] {
 
   const partList = find(scoreChildren, "part-list");
   const scoreParts = partList ? findAll(childrenOf(partList), "score-part") : [];
-  const gmMapsByPartId = new Map<string, Map<string, number>>();
+  const infoByPartId = new Map<string, { name: string; gmNoteByInstrumentId: Map<string, number>; instrumentKey: string | null }>();
   for (const scorePart of scoreParts) {
     const partId = attrsOf(scorePart)["@_id"];
     if (!partId) continue;
+    const name = String(textOf(find(childrenOf(scorePart), "part-name")) ?? "");
     const gmNoteByInstrumentId = new Map<string, number>();
     for (const midiInstrument of findAll(childrenOf(scorePart), "midi-instrument")) {
       const instrumentId = attrsOf(midiInstrument)["@_id"];
       const value = Number(textOf(find(childrenOf(midiInstrument), "midi-unpitched")));
       if (instrumentId && !Number.isNaN(value)) gmNoteByInstrumentId.set(instrumentId, value - 1);
     }
-    gmMapsByPartId.set(partId, gmNoteByInstrumentId);
+    // Only meaningful for non-percussion parts, but cheap to compute
+    // regardless — see the PartInfo.instrumentKey comment above.
+    const instrumentKey = gmNoteByInstrumentId.size === 0 ? resolveInstrumentKey(scorePart, name) : null;
+    infoByPartId.set(partId, { name, gmNoteByInstrumentId, instrumentKey });
   }
 
   return findAll(scoreChildren, "part").map((partNode) => {
     const id = attrsOf(partNode)["@_id"] ?? "";
+    const info = infoByPartId.get(id);
     return {
       id,
-      gmNoteByInstrumentId: gmMapsByPartId.get(id) ?? new Map(),
+      name: info?.name ?? "",
+      gmNoteByInstrumentId: info?.gmNoteByInstrumentId ?? new Map(),
+      instrumentKey: info?.instrumentKey ?? null,
       measures: findAll(childrenOf(partNode), "measure"),
     };
   });
@@ -95,9 +139,29 @@ function parseParts(root: XmlNode[]): PartInfo[] {
 
 interface ExtractedPart {
   notes: ChartNote[];
+  accompanimentNotes: AccompanimentNote[];
+  // True if this part had real (non-rest, non-grace) notes but no percussion
+  // mapping and no resolvable accompaniment instrument — lets the caller warn
+  // once per part instead of the note silently vanishing with no signal.
+  hadUnresolvedInstrumentNotes: boolean;
   bpm: number | null;
   endMs: number;
   timeSignature: { beatsPerBar: number; beatUnit: number } | null;
+}
+
+// Standard pitch-class semitone offsets from C; <alter> is in semitones
+// (e.g. -1 for a flat), same convention musicXML always uses for accidentals
+// not already baked into the step letter.
+const STEP_SEMITONES: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+function pitchToMidi(pitchNode: XmlNode): number | undefined {
+  const kids = childrenOf(pitchNode);
+  const step = String(textOf(find(kids, "step")) ?? "");
+  const octave = Number(textOf(find(kids, "octave")));
+  const alter = Number(textOf(find(kids, "alter")) ?? 0);
+  const semitone = STEP_SEMITONES[step];
+  if (semitone === undefined || Number.isNaN(octave)) return undefined;
+  return (octave + 1) * 12 + semitone + (Number.isNaN(alter) ? 0 : alter);
 }
 
 // Walks one part's measures in document order, tracking divisions (ticks per
@@ -107,6 +171,12 @@ interface ExtractedPart {
 // kick/snare as voice 2) within one measure.
 function extractNotes(part: PartInfo): ExtractedPart {
   const notes: ChartNote[] = [];
+  const accompanimentNotes: AccompanimentNote[] = [];
+  // A part with <midi-unpitched> declarations is percussion and takes the
+  // existing lane path unchanged; everything else attempts the accompaniment
+  // path via part.instrumentKey — never both for the same part.
+  const isPercussion = part.gmNoteByInstrumentId.size > 0;
+  let hadUnresolvedInstrumentNotes = false;
   let divisions = 1;
   let bpm: number | null = null;
   let timeSignature: { beatsPerBar: number; beatUnit: number } | null = null;
@@ -169,26 +239,40 @@ function extractNotes(part: PartInfo): ExtractedPart {
         maxMs = Math.max(maxMs, onsetMs + deltaMs);
 
         if (!isRest && !isGrace) {
-          const instrumentNode = find(kids, "instrument");
-          const instrumentId = instrumentNode ? attrsOf(instrumentNode)["@_id"] : undefined;
-          // A part with exactly one mapped instrument doesn't need every note
-          // to carry an explicit <instrument> reference — common in simpler
-          // single-voice drum exports.
-          const gmNote: number | undefined = instrumentId
-            ? part.gmNoteByInstrumentId.get(instrumentId)
-            : part.gmNoteByInstrumentId.size === 1
-              ? [...part.gmNoteByInstrumentId.values()][0]
-              : undefined;
-          const lane = gmNote !== undefined ? DEFAULT_GM_DRUM_MAP[gmNote] : undefined;
-          if (lane) {
-            notes.push({ timeMs: Math.round(onsetMs), lane, velocity: 100 });
+          if (isPercussion) {
+            const instrumentNode = find(kids, "instrument");
+            const instrumentId = instrumentNode ? attrsOf(instrumentNode)["@_id"] : undefined;
+            // A part with exactly one mapped instrument doesn't need every note
+            // to carry an explicit <instrument> reference — common in simpler
+            // single-voice drum exports.
+            const gmNote: number | undefined = instrumentId
+              ? part.gmNoteByInstrumentId.get(instrumentId)
+              : part.gmNoteByInstrumentId.size === 1
+                ? [...part.gmNoteByInstrumentId.values()][0]
+                : undefined;
+            const lane = gmNote !== undefined ? DEFAULT_GM_DRUM_MAP[gmNote] : undefined;
+            if (lane) {
+              notes.push({ timeMs: Math.round(onsetMs), lane, velocity: 100 });
+            }
+          } else {
+            const pitchNode = find(kids, "pitch");
+            const midi = pitchNode ? pitchToMidi(pitchNode) : undefined;
+            if (midi !== undefined && part.instrumentKey) {
+              // MusicXML doesn't carry a reliable per-note dynamic the way
+              // MIDI velocity does — same simplification the drum path
+              // already makes (velocity: 100, decorative for accompaniment
+              // audio rather than judged).
+              accompanimentNotes.push({ timeMs: Math.round(onsetMs), midi, durationMs: Math.round(deltaMs), velocity: 100 });
+            } else if (midi !== undefined) {
+              hadUnresolvedInstrumentNotes = true;
+            }
           }
         }
       }
     }
   }
 
-  return { notes, bpm, endMs: maxMs, timeSignature };
+  return { notes, accompanimentNotes, hadUnresolvedInstrumentNotes, bpm, endMs: maxMs, timeSignature };
 }
 
 // Pure parsing/mapping logic, split out from parseMusicXmlFile() so it's
@@ -212,6 +296,23 @@ export function chartFromMusicXml(xml: string, title?: string): Chart {
     throw new Error("No recognizable drum notes found in this MusicXML file.");
   }
 
+  const accompaniment: AccompanimentPart[] = [];
+  parts.forEach((part, index) => {
+    const extractedPart = extracted[index]!;
+    if (extractedPart.hadUnresolvedInstrumentNotes) {
+      console.warn(
+        `Skipping MusicXML part "${part.name || part.id}" — couldn't resolve it to a recognized guitar/bass instrument.`,
+      );
+    }
+    if (extractedPart.accompanimentNotes.length === 0 || !part.instrumentKey) return;
+    accompaniment.push({
+      id: part.id,
+      name: part.name || part.instrumentKey,
+      instrumentKey: part.instrumentKey,
+      notes: extractedPart.accompanimentNotes,
+    });
+  });
+
   const bpm = roundBpm(extracted.find((e) => e.bpm !== null)?.bpm ?? 120);
   const timeSignature = extracted.find((e) => e.timeSignature !== null)?.timeSignature ?? undefined;
   const maxEndMs = Math.max(...extracted.map((e) => e.endMs));
@@ -230,6 +331,7 @@ export function chartFromMusicXml(xml: string, title?: string): Chart {
     durationMs,
     notes,
     timeSignature,
+    accompaniment: accompaniment.length > 0 ? accompaniment : undefined,
   };
 }
 

@@ -2,6 +2,7 @@ import { Midi } from "@tonejs/midi";
 import type { Chart, ChartNote } from "../engine/chart";
 import { DEFAULT_GM_DRUM_MAP } from "../engine/lanes";
 import { roundBpm } from "../engine/chart";
+import { GM_PROGRAM_TO_INSTRUMENT_KEY, type AccompanimentNote, type AccompanimentPart } from "../engine/accompaniment";
 
 // @tonejs/midi already resolves each note's tick position against the
 // file's tempo map into absolute seconds (Note.time) — exactly the "resolve
@@ -39,6 +40,37 @@ export function chartFromMidi(midi: Midi, title?: string): Chart {
     throw new Error("No recognizable drum notes found in this MIDI file.");
   }
 
+  // Every track that wasn't positively identified as a drum track (channel
+  // 9), regardless of whether the fallback above ended up scanning
+  // everything for drum notes too — a track can contribute to both in the
+  // rare case a melodic track's pitches happen to coincide with GM drum note
+  // numbers, which is harmless. GM program is a reliable signal for MIDI
+  // (unlike MusicXML, where <midi-instrument> is often missing) so no
+  // name-based fallback is needed here.
+  const accompanimentTracks = midi.tracks.filter((t) => !drumTracks.includes(t));
+  const accompaniment: AccompanimentPart[] = [];
+  accompanimentTracks.forEach((track, index) => {
+    const instrumentKey = GM_PROGRAM_TO_INSTRUMENT_KEY[track.instrument.number];
+    if (!instrumentKey) {
+      if (track.notes.length > 0) {
+        console.warn(
+          `Skipping MIDI track "${track.name || `track ${index}`}" — instrument program ${track.instrument.number} isn't a recognized guitar/bass sound.`,
+        );
+      }
+      return;
+    }
+    const accompanimentNotes: AccompanimentNote[] = track.notes
+      .map((note) => ({
+        timeMs: Math.round(note.time * 1000),
+        midi: note.midi,
+        durationMs: Math.round(note.duration * 1000),
+        velocity: Math.round(note.velocity * 127),
+      }))
+      .sort((a, b) => a.timeMs - b.timeMs);
+    if (accompanimentNotes.length === 0) return;
+    accompaniment.push({ id: String(index), name: track.name || instrumentKey, instrumentKey, notes: accompanimentNotes });
+  });
+
   // First tempo event; mid-song tempo changes aren't reflected in the
   // single-BPM tempo slider yet. Rounded because MIDI stores tempo as
   // microseconds-per-quarter-note, so a file written at 95 BPM reads back
@@ -64,6 +96,7 @@ export function chartFromMidi(midi: Midi, title?: string): Chart {
     durationMs,
     notes,
     timeSignature,
+    accompaniment: accompaniment.length > 0 ? accompaniment : undefined,
   };
 }
 

@@ -22,6 +22,8 @@ import { bestScore, chartKey, listAttempts, recordAttempt } from "./storage/scor
 import { loadSettings, saveSettings } from "./storage/settings";
 import { DrumSynth } from "./audio/DrumSynth";
 import { DrumSampler, type SampleKitSpec } from "./audio/DrumSampler";
+import { AccompanimentSampler } from "./audio/AccompanimentSampler";
+import { AccompanimentPlayer } from "./engine/accompaniment";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#chart-canvas")!;
 const status = document.querySelector<HTMLParagraphElement>("#status")!;
@@ -41,6 +43,7 @@ const resetTempoButton = document.querySelector<HTMLButtonElement>("#reset-tempo
 const pausePadSelect = document.querySelector<HTMLSelectElement>("#pause-pad")!;
 const metronomeToggle = document.querySelector<HTMLSelectElement>("#metronome-toggle")!;
 const padSoundToggle = document.querySelector<HTMLSelectElement>("#pad-sound-toggle")!;
+const accompanimentToggle = document.querySelector<HTMLSelectElement>("#accompaniment-toggle")!;
 const hintsToggle = document.querySelector<HTMLSelectElement>("#hints-toggle")!;
 const debugToggle = document.querySelector<HTMLSelectElement>("#debug-toggle")!;
 const loadMidiButton = document.querySelector<HTMLButtonElement>("#load-midi")!;
@@ -98,6 +101,7 @@ window.addEventListener("keydown", () => startAudio(), { once: true });
 function startAudio(): void {
   drumSynth.unlock();
   ensureSamplesLoading();
+  ensureAccompanimentPlayer();
 }
 
 // Tempo is expressed in absolute BPM, not a relative multiplier — the slider
@@ -149,6 +153,7 @@ function persistSettings(): void {
     pausePad: pausePadLane ?? "",
     metronome: metronomeEnabled,
     padSounds: padSoundsEnabled,
+    accompaniment: accompanimentEnabled,
     hints: hintsToggle.value === "on",
     debugReadout,
   });
@@ -204,6 +209,23 @@ padSoundToggle.addEventListener("change", () => {
   persistSettings();
 });
 
+let accompanimentEnabled = true;
+accompanimentToggle.addEventListener("change", () => {
+  accompanimentEnabled = accompanimentToggle.value === "on";
+  if (!accompanimentEnabled) {
+    // Cuts anything currently ringing immediately, not just gates future
+    // ticks — same reasoning as stopAll() on pause/loop-restart:
+    // PlaybackClock pausing/switching doesn't touch the AudioContext on its
+    // own.
+    accompanimentPlayer?.stopAll();
+  } else {
+    // Without this, the next update() would see the whole gap since it was
+    // switched off as one burst of "overdue" notes — see resync()'s comment.
+    accompanimentPlayer?.resync(clock.nowMs());
+  }
+  persistSettings();
+});
+
 // The kit: which /public/samples/muldjord/<lane>_v<N>.wav files exist (see
 // public/samples/README.md for license/provenance). Recorded samples are the
 // only drum sound the player ever chooses — DrumSynth stays purely as the
@@ -229,6 +251,19 @@ function ensureSamplesLoading(): void {
   sampler.load().catch((err) => {
     importStatus.textContent = `Couldn't load drum samples (using synthesized fallback): ${(err as Error).message}`;
   });
+}
+
+// Lazily constructed the same way `sampler` is above — deferred until first
+// needed rather than at module load, so no AudioContext exists before the
+// autoplay-policy-unlocking gesture. Shares drumSynth's ctx/destination, same
+// as DrumSampler; no separate accompaniment volume control in v1.
+let accompanimentPlayer: AccompanimentPlayer | null = null;
+function ensureAccompanimentPlayer(): AccompanimentPlayer {
+  if (!accompanimentPlayer) {
+    const { ctx, destination } = drumSynth.getOutput();
+    accompanimentPlayer = new AccompanimentPlayer(new AccompanimentSampler(ctx, destination));
+  }
+  return accompanimentPlayer;
 }
 
 // Called on every recognized gameplay hit: real samples once they've
@@ -854,6 +889,17 @@ function handleNavDirection(dir: NavDirection): void {
 function swapChart(chart: Chart, statusText: string, autoStart = true): void {
   scoring.loadChart(chart);
   renderer.loadChart(chart);
+  // Must be here rather than only in loadTrack() — loop start/exit also
+  // reaches gameplay through this function, via a sliceChart()-derived
+  // chart, and the loop's narrower accompaniment slice needs to load too.
+  // Always loads (regardless of accompanimentEnabled) so the accompaniment
+  // toggle can be switched on mid-song without a reload — only *playback*
+  // (in scoringLoop) is gated by the setting, not loading.
+  ensureAccompanimentPlayer()
+    .loadChart(chart)
+    .catch((err) => {
+      importStatus.textContent = `Couldn't load accompaniment samples: ${(err as Error).message}`;
+    });
   status.textContent = statusText;
   if (autoStart) startWithCountdown();
   else armTrack();
@@ -890,11 +936,21 @@ function loadTrack(chart: Chart, songId: string | null = null, autoStart = true)
 
   exitLoopButton.classList.add("hidden");
   setUpLoopEditor(chart);
-  swapChart(
-    chart,
-    `${autoStart ? "Playing" : "Ready"} "${chart.title}" — ${chart.notes.length} notes`,
-    autoStart,
-  );
+  swapChart(chart, `${autoStart ? "Playing" : "Ready"} "${chart.title}" — ${chart.notes.length} notes${accompanimentSummary(chart)}`, autoStart);
+}
+
+// "+ guitar, bass" (or whatever families are present) appended to the
+// import/status line — otherwise a part getting recognized or skipped during
+// import is invisible, and there's no other way to tell "no guitar part in
+// this file" apart from "the app failed to recognize it."
+function accompanimentSummary(chart: Chart): string {
+  if (!chart.accompaniment || chart.accompaniment.length === 0) return "";
+  const families = [
+    ...new Set(
+      chart.accompaniment.map((p) => (p.instrumentKey.includes("bass") ? "bass" : p.instrumentKey.includes("guitar") ? "guitar" : p.instrumentKey)),
+    ),
+  ];
+  return ` + ${families.join(", ")}`;
 }
 
 // A user-designated "pause pad" needs no extra hardware (unlike a footswitch
@@ -1036,7 +1092,7 @@ function exitLoop(): void {
   exitLoopButton.classList.add("hidden");
   renderer.setLoopInfo(null);
   updatePausePadOptions(fullChart);
-  swapChart(fullChart, `Playing "${fullChart.title}" — ${fullChart.notes.length} notes`);
+  swapChart(fullChart, `Playing "${fullChart.title}" — ${fullChart.notes.length} notes${accompanimentSummary(fullChart)}`);
 }
 
 // Notes reset to pending but the clock is scheduled delayMs in the future
@@ -1063,6 +1119,11 @@ function startWithCountdown(delayMs: number = currentBarMs()): void {
   lastMetronomeBeatIndex = null;
   goCuePlayed = false;
   clock.reset(delayMs); // also un-pauses (see PlaybackClock.reset)
+  // Cuts anything still ringing from the previous rep's tail — clock.reset()
+  // jumping nowMs backward would trigger AccompanimentPlayer's own jump
+  // detection on the next tick anyway, but stopping explicitly here doesn't
+  // depend on that happening to still be true as this function evolves.
+  accompanimentPlayer?.stopAll();
   // Repaint the overlay immediately rather than waiting for the next
   // animation frame — otherwise there's a brief window (usually well under a
   // frame, but not guaranteed) where the old "Track complete!"/"Paused"
@@ -1078,6 +1139,10 @@ function startWithCountdown(delayMs: number = currentBarMs()): void {
 function pauseTrack(reason?: string): void {
   if (trackFinished || clock.isPaused()) return;
   clock.pause();
+  // clock.pause() only freezes chart time — it doesn't touch the
+  // AudioContext, so a sustained note scheduled before the pause would keep
+  // ringing straight through it otherwise.
+  accompanimentPlayer?.stopAll();
   pauseButton.textContent = "Resume";
   showPausedOverlay(reason);
 }
@@ -1286,6 +1351,11 @@ function handleLaneHit(
 function scoringLoop(): void {
   const nowMs = clock.nowMs();
   scoring.update(nowMs);
+  // Same nowMs the scoring engine just used — a second independent consumer
+  // of the shared clock, same shape as updateMetronomeAudio(nowMs) below.
+  // Gated by the setting (not just loaded-or-not) so switching it off stops
+  // new notes from firing without needing to reload the chart.
+  if (accompanimentEnabled) accompanimentPlayer?.update(nowMs);
   refreshStats();
   // A seamless ("no break") loop must restart exactly at the loop's musical
   // end (chart.durationMs), not scoring.isComplete() — isComplete() also

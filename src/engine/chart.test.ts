@@ -97,6 +97,63 @@ describe("sliceChart", () => {
     sliceChart(input, 1000, 2000);
     expect(input.notes[0]!.timeMs).toBe(1200);
   });
+
+  // Regression guard: sliceChart reconstructs Chart field-by-field, so a
+  // forgotten field is silently dropped and none of the tests above would
+  // catch it, since they never set accompaniment at all.
+  it("preserves accompaniment parts, filtering and rebasing their notes like the main notes", () => {
+    const input: Chart = {
+      ...chart([{ lane: "kick", timeMs: 1000, velocity: 100 }]),
+      accompaniment: [
+        {
+          id: "1",
+          name: "Guitar",
+          instrumentKey: "electric_guitar_clean",
+          notes: [
+            { timeMs: 900, midi: 40, durationMs: 200, velocity: 90 }, // before the window
+            { timeMs: 1200, midi: 45, durationMs: 300, velocity: 90 }, // inside the window
+          ],
+        },
+      ],
+    };
+
+    const result = sliceChart(input, 1000, 2000);
+
+    expect(result.accompaniment).toEqual([
+      {
+        id: "1",
+        name: "Guitar",
+        instrumentKey: "electric_guitar_clean",
+        notes: [{ timeMs: 200, midi: 45, durationMs: 300, velocity: 90 }],
+      },
+    ]);
+  });
+
+  it("clamps a sustained accompaniment note's durationMs so it doesn't ring past the window", () => {
+    const input: Chart = {
+      ...chart([]),
+      accompaniment: [
+        {
+          id: "1",
+          name: "Guitar",
+          instrumentKey: "electric_guitar_clean",
+          // starts 200ms before the window ends, but rings for 900ms —
+          // would otherwise bleed 700ms into the next loop rep
+          notes: [{ timeMs: 1800, midi: 40, durationMs: 900, velocity: 90 }],
+        },
+      ],
+    };
+
+    const result = sliceChart(input, 1000, 2000);
+
+    expect(result.accompaniment![0]!.notes).toEqual([{ timeMs: 800, midi: 40, durationMs: 200, velocity: 90 }]);
+  });
+
+  it("leaves accompaniment undefined when the source chart has none", () => {
+    const input = chart([{ lane: "kick", timeMs: 0, velocity: 100 }]);
+    const result = sliceChart(input, 0, 1000);
+    expect(result.accompaniment).toBeUndefined();
+  });
 });
 
 describe("roundBpm", () => {

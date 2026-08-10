@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "samples": "node tools/extract-samples.mjs",
+    "instrument-samples": "node tools/extract-instrument-samples.mjs",
     "lessons": "node tools/generate-lessons.mjs"
   },
   "devDependencies": {
