@@ -115,30 +115,48 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
 
 ## Practice lessons
 
-`public/lessons/` ships twelve short exercises that build up from single-limb
-timing to grooves to fills:
+`public/lessons/` ships twenty-one short exercises that build up from
+single-limb timing to grooves to fills to full-band playing:
 
 | | | |
 |---|---|---|
-| 01 Quarter Notes | 05 Rock Beat with Extra Kick | 09 Ride Groove |
-| 02 Eighth Notes | 06 Four on the Floor | 10 Snare Fill |
-| 03 Kick and Snare | 07 Half Time Groove | 11 Tom Fill |
-| 04 Basic Rock Beat | 08 Shuffle Groove | 12 Fill with Crash |
+| 01 Quarter Notes | 08 Shuffle Groove | 15 Linear Groove |
+| 02 Eighth Notes | 09 Ride Groove | 16 Syncopated Kick Groove |
+| 03 Kick and Snare | 10 Snare Fill | 17 Double-Time Feel |
+| 04 Basic Rock Beat | 11 Tom Fill | 18 Snare Doubles Fill |
+| 05 Rock Beat with Extra Kick | 12 Fill with Crash | 19 Syncopated Fill |
+| 06 Four on the Floor | 13 Ghost Notes | 20 Two-Bar Fill |
+| 07 Half Time Groove | 14 Sixteenth Note Hi-Hat Groove | 21 Groove Fill and Band |
+
+13-21 are numbered onward rather than interleaved into 01-12 — a saved
+song's practice history is keyed off its title (`chartKey()` in
+`storage/scoreHistory.ts`), so renaming an existing lesson would orphan any
+attempts already recorded against it. Several of the newer ones (14-17 and
+21) also include a generic bass-and-guitar accompaniment part, playing along
+underneath the drum chart — the first place in the app accompaniment shows
+up, deliberately left out of the pure-technique lessons (13, 18-20) so the
+one skill each of those is drilling stays the only thing competing for your
+attention.
 
 Add them via Songs → Manage library → Add track — the picker takes a
-multi-selection, so you can grab all twelve at once.
+multi-selection, so you can grab all twenty-one at once.
 
 They're **original exercises**, not transcriptions. Everything in them is
 stock teaching vocabulary — quarter notes, an eighth-note rock beat,
-four-on-the-floor, a shuffle, a descending tom fill — which is generic
-rhythmic material rather than anyone's composition, the drumming equivalent
-of practising scales. So they carry no attribution or royalty obligation and
-can ship with the app.
+four-on-the-floor, a shuffle, a descending tom fill, ghost notes, a linear
+groove — which is generic rhythmic material rather than anyone's
+composition, the drumming equivalent of practising scales. The accompaniment
+parts are built the same way: a generic i-VI-III-VII chord progression
+(Em-C-G-D), about as well-worn a pattern as exists in rock/pop. So none of it
+carries an attribution or royalty obligation and it can ship with the app.
 
 `npm run lessons` regenerates them from `tools/generate-lessons.mjs`; edit the
 `LESSONS` table there to change the syllabus. Patterns are written as
 positions on a per-bar grid (16 for sixteenths, 12 for triplets), which makes
-a groove a couple of readable lines.
+a groove a couple of readable lines. A lesson can add `ghost: {...}` (quiet
+notes layered onto the base groove), a multi-bar `fill` (an array of
+per-bar patterns plus `fillBars`), or `accompaniment: BAND` for the bass/
+guitar part.
 
 ## How it's put together
 
