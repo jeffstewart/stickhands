@@ -171,6 +171,9 @@ body.hide-hints .nav-hint {
   display: flex;
   align-items: center;
   gap: 6px;
+  /* Indents song rows under their folder header without a real nested-list
+     layout — the header and rows are just siblings in one flex column. */
+  margin-left: 16px;
 }
 
 .manage-row .song-item {
@@ -199,6 +202,46 @@ body.hide-hints .nav-hint {
   background: #ff6b6b;
   color: #15171d;
   font-weight: bold;
+}
+
+.new-folder-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  max-width: 620px;
+}
+
+.new-folder-row input {
+  flex: 1;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* Visually a step up from a song row — this is a section heading, not
+   another list item. */
+.folder-toggle {
+  flex: 1;
+  text-align: left;
+  font-weight: bold;
+}
+
+.folder-rename,
+.folder-rename-input {
+  flex-shrink: 0;
+}
+
+.folder-rename-input {
+  flex: 1;
+}
+
+.song-folder-select {
+  flex-shrink: 0;
+  min-width: 104px;
 }
 
 .loop-overview {

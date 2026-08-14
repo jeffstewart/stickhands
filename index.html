@@ -91,9 +91,14 @@
       </div>
       <div id="manage-panel" class="panel hidden">
         <p class="hint tip">
-          Every imported track. &ldquo;In quick list&rdquo; controls what appears on the main screen and in Next Track.
-          Mostly a mouse screen, but drum pads still reach the load and quick-list buttons.
+          Every imported track, grouped into folders you can create below. &ldquo;In quick list&rdquo;
+          controls what appears on the main screen and in Next Track. Mostly a mouse screen, but
+          drum pads still reach the load, folder, and quick-list buttons.
         </p>
+        <div class="new-folder-row">
+          <input type="text" id="new-folder-name" placeholder="New folder name" />
+          <button id="new-folder-create" type="button">Create folder</button>
+        </div>
         <div id="manage-list"></div>
         <p id="manage-empty" class="hint-inline">Nothing imported yet — add your first track below.</p>
         <button id="load-midi" type="button">Add track&hellip;</button>

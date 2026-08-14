@@ -1,0 +1,86 @@
+[
+  {
+    "file": "01 Quarter Notes",
+    "category": "Basics"
+  },
+  {
+    "file": "02 Eighth Notes",
+    "category": "Basics"
+  },
+  {
+    "file": "03 Kick and Snare",
+    "category": "Basics"
+  },
+  {
+    "file": "04 Basic Rock Beat",
+    "category": "Grooves"
+  },
+  {
+    "file": "05 Rock Beat with Extra Kick",
+    "category": "Grooves"
+  },
+  {
+    "file": "06 Four on the Floor",
+    "category": "Grooves"
+  },
+  {
+    "file": "07 Half Time Groove",
+    "category": "Grooves"
+  },
+  {
+    "file": "08 Shuffle Groove",
+    "category": "Grooves"
+  },
+  {
+    "file": "09 Ride Groove",
+    "category": "Grooves"
+  },
+  {
+    "file": "10 Snare Fill",
+    "category": "Fills"
+  },
+  {
+    "file": "11 Tom Fill",
+    "category": "Fills"
+  },
+  {
+    "file": "12 Fill with Crash",
+    "category": "Fills"
+  },
+  {
+    "file": "13 Ghost Notes",
+    "category": "Intermediate"
+  },
+  {
+    "file": "14 Sixteenth Note Hi-Hat Groove",
+    "category": "Intermediate"
+  },
+  {
+    "file": "15 Linear Groove",
+    "category": "Intermediate"
+  },
+  {
+    "file": "16 Syncopated Kick Groove",
+    "category": "Intermediate"
+  },
+  {
+    "file": "17 Double-Time Feel",
+    "category": "Intermediate"
+  },
+  {
+    "file": "18 Snare Doubles Fill",
+    "category": "Fills"
+  },
+  {
+    "file": "19 Syncopated Fill",
+    "category": "Fills"
+  },
+  {
+    "file": "20 Two-Bar Fill",
+    "category": "Fills"
+  },
+  {
+    "file": "21 Groove Fill and Band",
+    "category": "Capstone"
+  }
+]

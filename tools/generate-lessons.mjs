@@ -10,7 +10,12 @@
 // recording, so the files carry no attribution or royalty obligation.
 //
 // Edit the LESSONS table below to change the syllabus; the committed .mid
-// files are just this script's output.
+// files are just this script's output — as is manifest.json, which lists
+// every lesson's filename and category. public/ isn't glob-able at runtime
+// (Vite copies it as-is and never processes it), so bootstrapLibrary.ts
+// reads this manifest to know which files exist at all and which folder
+// each one seeds into on first run — generated here rather than
+// hand-maintained separately, since this table already owns that data.
 
 import pkg from "@tonejs/midi";
 const { Midi } = pkg;
@@ -45,6 +50,7 @@ const LESSONS = [
   // --- Basics: one limb at a time, slow enough to watch your hands --------
   {
     file: "01 Quarter Notes",
+    category: "Basics",
     bpm: 80,
     bars: 8,
     grid: 16,
@@ -52,6 +58,7 @@ const LESSONS = [
   },
   {
     file: "02 Eighth Notes",
+    category: "Basics",
     bpm: 80,
     bars: 8,
     grid: 16,
@@ -59,6 +66,7 @@ const LESSONS = [
   },
   {
     file: "03 Kick and Snare",
+    category: "Basics",
     bpm: 80,
     bars: 8,
     grid: 16,
@@ -69,6 +77,7 @@ const LESSONS = [
   // --- Putting three limbs together --------------------------------------
   {
     file: "04 Basic Rock Beat",
+    category: "Grooves",
     bpm: 90,
     bars: 12,
     grid: 16,
@@ -76,6 +85,7 @@ const LESSONS = [
   },
   {
     file: "05 Rock Beat with Extra Kick",
+    category: "Grooves",
     bpm: 100,
     bars: 12,
     grid: 16,
@@ -84,6 +94,7 @@ const LESSONS = [
   },
   {
     file: "06 Four on the Floor",
+    category: "Grooves",
     bpm: 110,
     bars: 12,
     grid: 16,
@@ -97,6 +108,7 @@ const LESSONS = [
   },
   {
     file: "07 Half Time Groove",
+    category: "Grooves",
     bpm: 85,
     bars: 12,
     grid: 16,
@@ -105,6 +117,7 @@ const LESSONS = [
   },
   {
     file: "08 Shuffle Groove",
+    category: "Grooves",
     bpm: 90,
     bars: 12,
     grid: 12,
@@ -113,6 +126,7 @@ const LESSONS = [
   },
   {
     file: "09 Ride Groove",
+    category: "Grooves",
     bpm: 100,
     bars: 12,
     grid: 16,
@@ -123,6 +137,7 @@ const LESSONS = [
   // --- Fills: three bars of groove, then a bar of something else ----------
   {
     file: "10 Snare Fill",
+    category: "Fills",
     bpm: 90,
     bars: 16,
     grid: 16,
@@ -132,6 +147,7 @@ const LESSONS = [
   },
   {
     file: "11 Tom Fill",
+    category: "Fills",
     bpm: 90,
     bars: 16,
     grid: 16,
@@ -142,6 +158,7 @@ const LESSONS = [
   },
   {
     file: "12 Fill with Crash",
+    category: "Fills",
     bpm: 95,
     bars: 16,
     grid: 16,
@@ -160,6 +177,7 @@ const LESSONS = [
   // free.
   {
     file: "13 Ghost Notes",
+    category: "Intermediate",
     bpm: 88,
     bars: 12,
     grid: 16,
@@ -173,6 +191,7 @@ const LESSONS = [
   },
   {
     file: "14 Sixteenth Note Hi-Hat Groove",
+    category: "Intermediate",
     bpm: 95,
     bars: 12,
     grid: 16,
@@ -184,6 +203,7 @@ const LESSONS = [
   },
   {
     file: "15 Linear Groove",
+    category: "Intermediate",
     bpm: 92,
     bars: 12,
     grid: 16,
@@ -196,6 +216,7 @@ const LESSONS = [
   },
   {
     file: "16 Syncopated Kick Groove",
+    category: "Intermediate",
     bpm: 96,
     bars: 12,
     grid: 16,
@@ -207,6 +228,7 @@ const LESSONS = [
   },
   {
     file: "17 Double-Time Feel",
+    category: "Intermediate",
     bpm: 130,
     bars: 12,
     grid: 16,
@@ -219,6 +241,7 @@ const LESSONS = [
   // --- More fill varieties --------------------------------------------------
   {
     file: "18 Snare Doubles Fill",
+    category: "Fills",
     bpm: 90,
     bars: 16,
     grid: 16,
@@ -230,6 +253,7 @@ const LESSONS = [
   },
   {
     file: "19 Syncopated Fill",
+    category: "Fills",
     bpm: 92,
     bars: 16,
     grid: 16,
@@ -241,6 +265,7 @@ const LESSONS = [
   },
   {
     file: "20 Two-Bar Fill",
+    category: "Fills",
     bpm: 90,
     bars: 16,
     grid: 16,
@@ -266,6 +291,7 @@ const LESSONS = [
     // the generator's own output. Real risk for an end user too, not just a
     // build quirk, so worth avoiding rather than working around.
     file: "21 Groove Fill and Band",
+    category: "Capstone",
     bpm: 100,
     bars: 24,
     grid: 16,
@@ -401,4 +427,9 @@ for (const lesson of LESSONS) {
   total += bytes.length;
   console.log(`  ${lesson.file}.mid  (${lesson.bpm} BPM, ${lesson.bars} bars, ${bytes.length} bytes)`);
 }
+
+const manifest = LESSONS.map((l) => ({ file: l.file, category: l.category }));
+fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+console.log(`  manifest.json  (${manifest.length} entries)`);
+
 console.log(`\nWrote ${LESSONS.length} lessons to public/lessons/, ${(total / 1024).toFixed(1)} KB total`);

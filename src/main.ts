@@ -17,7 +17,20 @@ import type { MidiNoteEvent } from "./midi/MidiSource";
 import { LANE_TO_NAV, type NavDirection } from "./engine/navigation";
 import { parseMidiFile } from "./import/midiImport";
 import { parseMusicXmlFile } from "./import/musicXmlImport";
-import { deleteSong, listPinned, listSongs, reorderPinned, saveSong, setPinned } from "./storage/songLibrary";
+import {
+  createFolder,
+  deleteFolder,
+  deleteSong,
+  listFolders,
+  listPinned,
+  listSongs,
+  renameFolder,
+  reorderPinned,
+  saveSong,
+  setPinned,
+  setSongFolder,
+} from "./storage/songLibrary";
+import { ensureLibraryBootstrapped } from "./storage/bootstrapLibrary";
 import { bestScore, chartKey, listAttempts, recordAttempt } from "./storage/scoreHistory";
 import { loadSettings, saveSettings } from "./storage/settings";
 import { DrumSynth } from "./audio/DrumSynth";
@@ -79,6 +92,8 @@ const closeManageButton = document.querySelector<HTMLButtonElement>("#close-mana
 const managePanel = document.querySelector<HTMLDivElement>("#manage-panel")!;
 const manageList = document.querySelector<HTMLDivElement>("#manage-list")!;
 const manageEmpty = document.querySelector<HTMLParagraphElement>("#manage-empty")!;
+const newFolderName = document.querySelector<HTMLInputElement>("#new-folder-name")!;
+const newFolderCreate = document.querySelector<HTMLButtonElement>("#new-folder-create")!;
 
 const clock = new PlaybackClock();
 const judgments = new NoteJudgments();
@@ -389,13 +404,24 @@ const SCORES_MENU: MenuItem[] = [closeScoresButton];
 // Rebuilt per song like libraryMenu. Load and quick-list buttons are
 // included; Delete deliberately is not, keeping destructive actions
 // mouse-only as they have been since the library was added.
-let manageMenu: HTMLButtonElement[] = [];
+let manageMenu: MenuItem[] = [];
 // Arms a song's delete button for a second confirming click (see
 // renderLibraryList) — an in-panel two-click confirm instead of a native
 // confirm() dialog, which is both visually inconsistent with this app's
 // fully custom UI and (confirmed directly) breaks in embedded/automated
 // browser contexts by blocking the whole page.
 let pendingDeleteId: string | null = null;
+// Same two-click-arm pattern, for a folder's delete button instead of a song's.
+let pendingDeleteFolderId: string | null = null;
+// Which folder (if any) is showing its inline rename input instead of its
+// normal header row. Text entry, so — like the delete confirm above and the
+// file picker — this whole interaction is mouse-only by nature; there's no
+// on-screen keyboard for drum-pad text entry to type into.
+let renamingFolderId: string | null = null;
+// Folders start expanded (so bootstrapped content is visible immediately
+// without extra clicks) — this only ever holds folders the user explicitly
+// collapsed.
+const collapsedFolderIds = new Set<string>();
 
 type MenuLevel = "main" | "settings" | "loop" | "library" | "scores" | "manage";
 let menuLevel: MenuLevel = "main";
@@ -697,16 +723,27 @@ function renderScoresList(): void {
 }
 
 // Full library management. Deliberately mouse-first — a row carries a load
-// button, a quick-list toggle and a delete, which is more than drum-pad
-// navigation wants to walk through — but the load and toggle buttons are
-// still in the nav array so the screen is reachable without a mouse.
-// Delete stays mouse-only, as destructive actions have been throughout.
+// button, a folder assignment, a quick-list toggle and a delete, which is
+// more than drum-pad navigation wants to walk through — but load, folder,
+// and quick-list-toggle stay in the nav array so the screen is reachable
+// without a mouse. Delete stays mouse-only, as destructive actions have been
+// throughout; so do folder rename/delete and creation, which need real text
+// entry this app has no drum-pad path for anyway.
+//
+// Grouped by folder — one collapsible header per folder (songs.length in
+// its own scope so re-renders stay cheap), then an "Unfoldered" section for
+// everything with no folder. Collapsed folders' rows are left out of
+// manageMenu entirely, not just hidden, matching how deleteButton is already
+// deliberately excluded — otherwise up/down would silently stop on
+// off-screen focus targets.
 function renderManageList(): void {
   manageList.innerHTML = "";
-  const songs = listSongs(localStorage);
-  manageEmpty.classList.toggle("hidden", songs.length > 0);
+  const allSongs = listSongs(localStorage);
+  const folders = listFolders(localStorage);
+  manageEmpty.classList.toggle("hidden", allSongs.length > 0);
   manageMenu = [];
-  for (const song of songs) {
+
+  function renderSongRow(song: (typeof allSongs)[number]): void {
     const row = document.createElement("div");
     row.className = "manage-row";
 
@@ -727,6 +764,25 @@ function renderManageList(): void {
     const stats = document.createElement("span");
     stats.className = "song-stats";
     stats.textContent = runs === 0 ? "no runs" : `best ${best}% · ${runs} run${runs === 1 ? "" : "s"}`;
+
+    const folderSelect = document.createElement("select");
+    folderSelect.className = "song-folder-select";
+    const noFolderOption = document.createElement("option");
+    noFolderOption.value = "";
+    noFolderOption.textContent = "No folder";
+    folderSelect.appendChild(noFolderOption);
+    for (const folder of folders) {
+      const option = document.createElement("option");
+      option.value = folder.id;
+      option.textContent = folder.name;
+      folderSelect.appendChild(option);
+    }
+    folderSelect.value = song.folderId ?? "";
+    folderSelect.addEventListener("change", () => {
+      setSongFolder(localStorage, song.id, folderSelect.value || null);
+      renderManageList();
+      updateMenuFocusUI();
+    });
 
     const pinButton = document.createElement("button");
     pinButton.type = "button";
@@ -756,10 +812,107 @@ function renderManageList(): void {
       updateMenuFocusUI();
     });
 
-    row.append(loadButton, stats, pinButton, deleteButton);
+    row.append(loadButton, stats, folderSelect, pinButton, deleteButton);
     manageList.appendChild(row);
-    manageMenu.push(loadButton, pinButton);
+    manageMenu.push(loadButton, folderSelect, pinButton);
   }
+
+  function renderFolderHeader(folder: (typeof folders)[number], count: number): void {
+    const header = document.createElement("div");
+    header.className = "folder-header";
+
+    if (renamingFolderId === folder.id) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "folder-rename-input";
+      input.value = folder.name;
+      const saveButton = document.createElement("button");
+      saveButton.type = "button";
+      saveButton.textContent = "Save";
+      saveButton.addEventListener("click", () => {
+        const name = input.value.trim();
+        if (name) renameFolder(localStorage, folder.id, name);
+        renamingFolderId = null;
+        renderManageList();
+        updateMenuFocusUI();
+      });
+      const cancelButton = document.createElement("button");
+      cancelButton.type = "button";
+      cancelButton.textContent = "Cancel";
+      cancelButton.addEventListener("click", () => {
+        renamingFolderId = null;
+        renderManageList();
+        updateMenuFocusUI();
+      });
+      header.append(input, saveButton, cancelButton);
+      manageList.appendChild(header);
+      return;
+    }
+
+    const collapsed = collapsedFolderIds.has(folder.id);
+    const toggleButton = document.createElement("button");
+    toggleButton.type = "button";
+    toggleButton.className = "folder-toggle";
+    toggleButton.textContent = `${collapsed ? "▸" : "▾"} ${folder.name} (${count})`;
+    toggleButton.addEventListener("click", () => {
+      if (collapsed) collapsedFolderIds.delete(folder.id);
+      else collapsedFolderIds.add(folder.id);
+      renderManageList();
+      updateMenuFocusUI();
+    });
+
+    const renameButton = document.createElement("button");
+    renameButton.type = "button";
+    renameButton.className = "folder-rename";
+    renameButton.textContent = "Rename";
+    renameButton.addEventListener("click", () => {
+      renamingFolderId = folder.id;
+      renderManageList();
+      updateMenuFocusUI();
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    const armed = folder.id === pendingDeleteFolderId;
+    deleteButton.className = armed ? "song-delete armed" : "song-delete";
+    deleteButton.textContent = armed ? "Confirm?" : "Delete folder";
+    deleteButton.title = "Moves its tracks to Unfoldered rather than deleting them";
+    deleteButton.addEventListener("click", () => {
+      if (!armed) {
+        pendingDeleteFolderId = folder.id;
+        renderManageList();
+        return;
+      }
+      pendingDeleteFolderId = null;
+      deleteFolder(localStorage, folder.id);
+      renderManageList();
+      updateMenuFocusUI();
+    });
+
+    header.append(toggleButton, renameButton, deleteButton);
+    manageList.appendChild(header);
+    manageMenu.push(toggleButton);
+  }
+
+  for (const folder of folders) {
+    const songsInFolder = allSongs.filter((s) => s.folderId === folder.id);
+    renderFolderHeader(folder, songsInFolder.length);
+    if (!collapsedFolderIds.has(folder.id)) {
+      for (const song of songsInFolder) renderSongRow(song);
+    }
+  }
+
+  const unfoldered = allSongs.filter((s) => s.folderId === null);
+  // Only label it when there's something to distinguish it from — with no
+  // folders at all, every song is unfoldered and the label would be noise.
+  if (folders.length > 0 && unfoldered.length > 0) {
+    const label = document.createElement("p");
+    label.className = "hint-inline";
+    label.textContent = "Unfoldered";
+    manageList.appendChild(label);
+  }
+  for (const song of unfoldered) renderSongRow(song);
+
   manageMenu.push(loadMidiButton, closeManageButton);
 }
 
@@ -776,6 +929,8 @@ function closeManage(): void {
   menuLevel = "main";
   menuFocusIndex = 0;
   pendingDeleteId = null;
+  pendingDeleteFolderId = null;
+  renamingFolderId = null;
   managePanel.classList.add("hidden");
   updateMenuFocusUI();
 }
@@ -1531,6 +1686,17 @@ closeScoresButton.addEventListener("click", closeScores);
 // what makes a track reachable without a mouse on every subsequent play.
 loadMidiButton.addEventListener("click", () => midiFileInput.click());
 
+// Text entry, so mouse-only like everything else that needs it (rename, the
+// file picker) — there's no drum-pad path for typing a name.
+newFolderCreate.addEventListener("click", () => {
+  const name = newFolderName.value.trim();
+  if (!name) return;
+  createFolder(localStorage, name);
+  newFolderName.value = "";
+  renderManageList();
+  updateMenuFocusUI();
+});
+
 midiFileInput.addEventListener("change", async () => {
   const files = [...(midiFileInput.files ?? [])];
   midiFileInput.value = ""; // reset so re-selecting the same file still fires "change"
@@ -1592,6 +1758,20 @@ midiFileInput.addEventListener("change", async () => {
 }
 
 loadTrack(DEMO_CHART, null, false);
+
+// Fired async, not awaited — the demo chart above already plays immediately
+// regardless of library state. This only needs to finish before/while the
+// user might open Songs; if either panel is already open when it resolves,
+// refresh it so newly-seeded content doesn't require a manual reopen to see.
+void ensureLibraryBootstrapped(localStorage, () => {
+  if (menuLevel === "library") {
+    renderLibraryList();
+    updateMenuFocusUI();
+  } else if (menuLevel === "manage") {
+    renderManageList();
+    updateMenuFocusUI();
+  }
+});
 
 // --- Real MIDI input ---
 const midi = new WebMidiSource();

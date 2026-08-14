@@ -68,6 +68,12 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
 
 ## What it does
 
+- **Ready to play out of the box.** A fresh install seeds the library with
+  the demo track and all 21 practice lessons on first launch, grouped into
+  folders (Basics, Grooves, Fills, Intermediate, Capstone) — Songs and Next
+  Track have real content immediately, no import required. They're ordinary
+  library entries from that point on: rename, refolder, or delete them like
+  anything you import yourself.
 - **Import your own charts** via Songs → Manage library → Add track. Adding
   keeps you on that screen, so several files can go in one after another;
   click a track in the list when you actually want to play it. `.mid` /
@@ -78,6 +84,10 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
   screen, no menus. Manage library (inside Songs) holds everything you've
   ever imported, where you add tracks, pin them into the quick list, delete
   them, and compare best score and run count across every track at a glance.
+- **Folders** organize Manage library your way — create one from the panel,
+  then assign any track to it from a dropdown on that track's row. Folders
+  are flat (no nesting) and collapsible; deleting a folder moves its tracks
+  back to unfoldered rather than deleting them.
 - **Rearrange the set list.** Drag tracks in the quick list, or highlight one
   and use Tom 1 / Tom 2 to move it up and down. Next Track follows that
   order, and new imports are appended to the end.
@@ -306,7 +316,9 @@ upgrade path if it ever matters enough.
 - Mid-song tempo changes aren't followed — only the first tempo marking is
   read. This is the big one; it needs a real tempo map threaded through
   scoring, rendering, the count-in, the metronome, and the loop bar math.
-- No de-duplication on import: importing the same file twice creates two
-  library entries.
+- No de-duplication on manual import: importing the same file twice creates
+  two library entries. (The first-launch bootstrap that seeds the demo track
+  and lessons does dedupe, so it won't double up if you'd already imported
+  one of them yourself.)
 - No song audio playback yet. Playing along to the actual recording needs a
   real `AudioClock` (currently a stub) plus latency calibration.

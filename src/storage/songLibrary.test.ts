@@ -1,7 +1,22 @@
 import { describe, it, expect } from "vitest";
 import type { Chart } from "../engine/chart";
 import type { KeyValueStore } from "./songLibrary";
-import { deleteSong, listPinned, listSongs, reorderPinned, saveSong, setPinned } from "./songLibrary";
+import {
+  createFolder,
+  deleteFolder,
+  deleteSong,
+  hasExistingLibraryData,
+  isBootstrapped,
+  listFolders,
+  listPinned,
+  listSongs,
+  markBootstrapped,
+  renameFolder,
+  reorderPinned,
+  saveSong,
+  setPinned,
+  setSongFolder,
+} from "./songLibrary";
 
 // Plain in-memory stand-in for localStorage — this project's tests run under
 // plain Node, not jsdom, so there's no real Storage global to reach for.
@@ -185,5 +200,165 @@ describe("set-list reordering", () => {
       { id: "o", chart: makeChart("Older"), importedAt: 100 },
     ]));
     expect(listSongs(store).map((s) => s.chart.title)).toEqual(["Older", "Younger"]);
+  });
+});
+
+describe("folders", () => {
+  it("new songs start unfoldered", () => {
+    const store = fakeStore();
+    expect(saveSong(store, makeChart("Track")).folderId).toBeNull();
+  });
+
+  it("saveSong accepts a folder id", () => {
+    const store = fakeStore();
+    const folder = createFolder(store, "Grooves");
+    const song = saveSong(store, makeChart("Track"), folder.id);
+    expect(song.folderId).toBe(folder.id);
+  });
+
+  it("createFolder reuses an existing folder with the same name instead of duplicating it", () => {
+    const store = fakeStore();
+    const first = createFolder(store, "Fills");
+    const second = createFolder(store, "Fills");
+    expect(second.id).toBe(first.id);
+    expect(listFolders(store)).toHaveLength(1);
+  });
+
+  it("lists folders in creation order", () => {
+    const store = fakeStore();
+    createFolder(store, "A");
+    createFolder(store, "B");
+    createFolder(store, "C");
+    expect(listFolders(store).map((f) => f.name)).toEqual(["A", "B", "C"]);
+  });
+
+  it("renameFolder only touches the targeted folder", () => {
+    const store = fakeStore();
+    const a = createFolder(store, "A");
+    createFolder(store, "B");
+    renameFolder(store, a.id, "A renamed");
+    expect(listFolders(store).map((f) => f.name)).toEqual(["A renamed", "B"]);
+  });
+
+  it("setSongFolder moves a song between folders", () => {
+    const store = fakeStore();
+    const folderA = createFolder(store, "A");
+    const folderB = createFolder(store, "B");
+    const song = saveSong(store, makeChart("Track"), folderA.id);
+    setSongFolder(store, song.id, folderB.id);
+    expect(listSongs(store)[0]!.folderId).toBe(folderB.id);
+  });
+
+  it("setSongFolder can move a song back to unfoldered", () => {
+    const store = fakeStore();
+    const folder = createFolder(store, "A");
+    const song = saveSong(store, makeChart("Track"), folder.id);
+    setSongFolder(store, song.id, null);
+    expect(listSongs(store)[0]!.folderId).toBeNull();
+  });
+
+  it("deleteFolder removes the folder but moves its songs to unfoldered rather than deleting them", () => {
+    const store = fakeStore();
+    const folder = createFolder(store, "Doomed");
+    const song = saveSong(store, makeChart("Track"), folder.id);
+
+    deleteFolder(store, folder.id);
+
+    expect(listFolders(store)).toEqual([]);
+    expect(listSongs(store)).toHaveLength(1);
+    expect(listSongs(store)[0]!.id).toBe(song.id);
+    expect(listSongs(store)[0]!.folderId).toBeNull();
+  });
+
+  it("deleteFolder only reassigns songs that were actually in it", () => {
+    const store = fakeStore();
+    const kept = createFolder(store, "Kept");
+    const doomed = createFolder(store, "Doomed");
+    const songInKept = saveSong(store, makeChart("A"), kept.id);
+    saveSong(store, makeChart("B"), doomed.id);
+
+    deleteFolder(store, doomed.id);
+
+    expect(listSongs(store).find((s) => s.id === songInKept.id)!.folderId).toBe(kept.id);
+  });
+
+  // Songs saved before folders existed have no folderId at all; defaulting
+  // to null means they show up as "unfoldered" rather than crashing whatever
+  // does `folderId === someId` comparisons downstream.
+  it("treats songs stored before folders existed as unfoldered", () => {
+    const store = fakeStore();
+    store.setItem(
+      "drumhero.library.v1",
+      JSON.stringify([{ id: "legacy", chart: makeChart("Old"), importedAt: 1 }]),
+    );
+    expect(listSongs(store)[0]!.folderId).toBeNull();
+  });
+});
+
+describe("library shape migration", () => {
+  it("wraps a legacy bare-array library in place, preserving every song", () => {
+    const store = fakeStore();
+    store.setItem(
+      "drumhero.library.v1",
+      JSON.stringify([
+        { id: "a", chart: makeChart("A"), importedAt: 1, pinned: true, order: 0 },
+        { id: "b", chart: makeChart("B"), importedAt: 2, pinned: false, order: 1 },
+      ]),
+    );
+    expect(listSongs(store).map((s) => s.chart.title)).toEqual(["A", "B"]);
+    expect(listFolders(store)).toEqual([]);
+  });
+
+  it("reads the current { songs, folders } object shape directly", () => {
+    const store = fakeStore();
+    const folder: { id: string; name: string; order: number } = { id: "f1", name: "Grooves", order: 0 };
+    store.setItem(
+      "drumhero.library.v1",
+      JSON.stringify({
+        songs: [{ id: "a", chart: makeChart("A"), importedAt: 1, pinned: true, order: 0, folderId: "f1" }],
+        folders: [folder],
+      }),
+    );
+    expect(listFolders(store)).toEqual([folder]);
+    expect(listSongs(store)[0]!.folderId).toBe("f1");
+  });
+
+  it("tolerates an object shape with a missing folders array", () => {
+    const store = fakeStore();
+    store.setItem("drumhero.library.v1", JSON.stringify({ songs: [] }));
+    expect(listFolders(store)).toEqual([]);
+    expect(listSongs(store)).toEqual([]);
+  });
+});
+
+describe("bootstrap tracking", () => {
+  it("has no existing data and isn't bootstrapped for a genuinely fresh store", () => {
+    const store = fakeStore();
+    expect(hasExistingLibraryData(store)).toBe(false);
+    expect(isBootstrapped(store)).toBe(false);
+  });
+
+  it("markBootstrapped is independently readable via isBootstrapped", () => {
+    const store = fakeStore();
+    markBootstrapped(store);
+    expect(isBootstrapped(store)).toBe(true);
+  });
+
+  // The key correctness case: a user who used the app and then deleted every
+  // song still has real data on disk (the key exists, holding an empty
+  // library) — that must read as "existing data," not "fresh install,"
+  // or a bootstrap step would wrongly reseed content they deliberately removed.
+  it("treats a deliberately emptied library as existing data, not a fresh install", () => {
+    const store = fakeStore();
+    const song = saveSong(store, makeChart("Track"));
+    deleteSong(store, song.id);
+    expect(listSongs(store)).toEqual([]);
+    expect(hasExistingLibraryData(store)).toBe(true);
+  });
+
+  it("treats any legacy bare-array data as existing, regardless of content", () => {
+    const store = fakeStore();
+    store.setItem("drumhero.library.v1", JSON.stringify([]));
+    expect(hasExistingLibraryData(store)).toBe(true);
   });
 });
