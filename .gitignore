@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# electron-builder output (npm run electron:build) — build/icon.png is a
+# committed source asset, this is just the packaged app/installer artifacts
+release
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

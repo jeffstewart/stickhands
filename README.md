@@ -12,10 +12,12 @@ The point of difference versus subscription apps like Melodics is that you
 bring your own charts: import any MIDI or MusicXML file instead of renting
 a locked song library.
 
-Status: **Phase 0** — a browser-only prototype, but a complete and playable
-one. Phase 1 is wrapping this same TypeScript in Tauri for a desktop build;
-Phase 2 (optional) is a Capacitor mobile wrapper, where MIDI I/O would become
-a native plugin.
+Status: the core app is complete and playable, in the browser or as a desktop
+app (see below). Desktop covers macOS, Windows, and Linux/SteamOS. Mobile
+(iOS/Android) is deferred — iOS specifically has no working Web MIDI solution
+in any wrapper technology today, WebKit has never implemented the API, so it
+needs real native engineering (a CoreMIDI bridge) whenever it's tackled, not
+just a packaging choice.
 
 ## Running it
 
@@ -59,7 +61,10 @@ Hold <kbd>Shift</kbd> for a harder hit, which selects a louder velocity layer.
 | `npm test` | Run the unit tests once |
 | `npm run test:watch` | Watch mode |
 | `npm run samples` | Rebuild the drum samples from upstream (see below) |
+| `npm run instrument-samples` | Rebuild the guitar/bass accompaniment samples from upstream |
 | `npm run lessons` | Regenerate the practice lessons (see below) |
+| `npm run electron` | Run the desktop app in dev mode (needs `npm run dev` running in another terminal) |
+| `npm run electron:build` | Build a packaged desktop app into `release/` |
 
 ## What it does
 
@@ -157,6 +162,74 @@ a groove a couple of readable lines. A lesson can add `ghost: {...}` (quiet
 notes layered onto the base groove), a multi-bar `fill` (an array of
 per-bar patterns plus `fillBars`), or `accompaniment: BAND` for the bass/
 guitar part.
+
+## Desktop app (Electron)
+
+Stickhands runs as a standalone desktop app on macOS, Windows, and Linux
+(including SteamOS/Steam Deck, via the AppImage build) using Electron, not
+Tauri. That's a deliberate choice, not a default: **Web MIDI — this app's
+entire input mechanism — has never been implemented in WebKit** (Safari,
+WKWebView on Mac, WebKitGTK on Linux), by Apple's own decision, with no
+roadmap to change. Tauri wraps each OS's *system* webview, so a Tauri build
+would silently lose real drum-kit input on Mac and Linux, keeping only the
+on-screen-keyboard fallback. Electron bundles its own Chromium regardless of
+host OS, so Web MIDI just works everywhere — that's the whole reason it wins
+here despite the larger install size.
+
+### Dev workflow
+
+Two terminals — Electron in dev mode points at the Vite dev server rather
+than a built file, so you get the same hot-reload as `npm run dev` alone:
+
+```bash
+npm run dev        # terminal 1 — Vite dev server
+npm run electron    # terminal 2 — opens a window pointed at it
+```
+
+### Building a packaged app
+
+```bash
+npm run electron:build
+```
+
+Output lands in `release/` (gitignored — this is a build artifact, not
+something to commit). On macOS this produces a `.dmg` and a `.zip`; the
+Windows (`nsis`) and Linux (`AppImage`) targets are configured in
+`package.json`'s `"build"` block but have only been verified by actually
+building and launching the macOS output — there's no Windows or Linux machine
+in the loop that produced this. If you hit something building or running
+those, that's the first place to look.
+
+A few things worth knowing about how the wrapper works, in case you're
+touching it:
+
+- `vite.config.ts` sets `base: "./"` — needed so the built `index.html` (and
+  everything it references) resolves under a `file://` load, not just when
+  served from an HTTP origin's root. Electron's production mode loads
+  `dist/index.html` straight off disk.
+- `electron/main.cjs` is deliberately minimal: one `BrowserWindow`, no
+  preload script, no IPC. The app doesn't need anything else from Electron —
+  MIDI, audio, and `localStorage` persistence all work the same way they do
+  in a browser tab, with zero native bridging code.
+- Packaging runs with `asar: false`. The two runtime `fetch()` calls (loading
+  drum/instrument samples) are relative paths resolved against the page's own
+  `file://` URL — that's a real, long-documented failure mode when the app is
+  packed into `app.asar`, since Chromium's file-URL loader does a raw
+  filesystem read on the literal path and doesn't understand the
+  asar-virtual-directory convention. Fixing it properly later (so asar's
+  benefits come back) means a custom `protocol.handle()` scheme in the main
+  process instead of `loadFile()` — not needed yet.
+- Flatpak isn't configured. electron-builder's Flatpak target needs a real
+  Linux machine with `flatpak`/`flatpak-builder` installed — it hard-fails
+  without one, so there was nothing to gain from stubbing in a config block
+  that couldn't be exercised at all here. AppImage is the right primary
+  target for SteamOS/Steam Deck anyway: portable, no install onto the
+  read-only root filesystem, the standard way to add non-Steam software in
+  Desktop Mode.
+- Code-signing and notarization (macOS) and code-signing (Windows) both need
+  your own developer credentials and aren't set up — an unsigned/unnotarized
+  build will trigger Gatekeeper and SmartScreen warnings respectively on a
+  machine other than the one that built it.
 
 ## How it's put together
 

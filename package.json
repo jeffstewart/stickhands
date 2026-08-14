@@ -2,7 +2,10 @@
   "name": "stickhands",
   "private": true,
   "version": "0.0.0",
+  "description": "A rhythm game for electronic drum kits, played with your own imported charts.",
+  "author": "Jeff Stewart",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -11,9 +14,14 @@
     "test:watch": "vitest",
     "samples": "node tools/extract-samples.mjs",
     "instrument-samples": "node tools/extract-instrument-samples.mjs",
-    "lessons": "node tools/generate-lessons.mjs"
+    "lessons": "node tools/generate-lessons.mjs",
+    "electron": "cross-env ELECTRON_DEV=1 electron .",
+    "electron:build": "npm run build && electron-builder"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vitest": "^4.1.10"
@@ -21,5 +29,36 @@
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
     "fast-xml-parser": "^5.10.1"
+  },
+  "build": {
+    "appId": "com.stickhands.app",
+    "productName": "Stickhands",
+    "directories": {
+      "output": "release"
+    },
+    "asar": false,
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.music"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Audio"
+    }
   }
 }
