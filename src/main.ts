@@ -39,6 +39,7 @@ import { AccompanimentSampler } from "./audio/AccompanimentSampler";
 import { AccompanimentPlayer } from "./engine/accompaniment";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#chart-canvas")!;
+const canvasWrap = document.querySelector<HTMLDivElement>("#canvas-wrap")!;
 const status = document.querySelector<HTMLParagraphElement>("#status")!;
 const midiStatus = document.querySelector<HTMLParagraphElement>("#midi-status")!;
 const statsEl = document.querySelector<HTMLParagraphElement>("#stats")!;
@@ -101,6 +102,22 @@ const extraHits = new ExtraHitMarkers();
 const renderer = new ChartRenderer(canvas, DEMO_CHART, clock, judgments, extraHits);
 const scoring = new ScoringEngine(DEMO_CHART, judgments, DEFAULT_GM_DRUM_MAP, DEFAULT_HIT_WINDOWS, extraHits);
 const drumSynth = new DrumSynth();
+
+// Keeps the canvas's actual pixel buffer in sync with its on-screen CSS
+// size (which now flexes with the window) — the renderer computes lane
+// layout, hit-line position, etc. from canvas.width/height fresh every
+// frame, so this is the only thing needed to make the note field track
+// the window instead of staying pinned at its old fixed 900x550.
+function resizeCanvasToWrap(): void {
+  const { clientWidth, clientHeight } = canvasWrap;
+  if (clientWidth === 0 || clientHeight === 0) return;
+  if (canvas.width === clientWidth && canvas.height === clientHeight) return;
+  canvas.width = clientWidth;
+  canvas.height = clientHeight;
+}
+resizeCanvasToWrap();
+new ResizeObserver(resizeCanvasToWrap).observe(canvasWrap);
+
 renderer.start();
 
 // Best-effort: unlock audio on the very first real interaction anywhere on
