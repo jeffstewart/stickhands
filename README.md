@@ -203,12 +203,30 @@ npm run electron:build
 ```
 
 Output lands in `release/` (gitignored — this is a build artifact, not
-something to commit). On macOS this produces a `.dmg` and a `.zip`; the
-Windows (`nsis`) and Linux (`AppImage`) targets are configured in
-`package.json`'s `"build"` block but have only been verified by actually
-building and launching the macOS output — there's no Windows or Linux machine
-in the loop that produced this. If you hit something building or running
-those, that's the first place to look.
+something to commit). On macOS this produces a `.dmg` and a `.zip`, on
+Windows an NSIS installer `.exe`, on Linux an `AppImage`. There are no native
+Node modules in this project, so electron-builder can cross-compile any of
+these from any host — `electron-builder --win` / `--linux` / `--mac` all work
+fine from this Mac without owning the target OS. What a single machine
+*can't* do is actually run and verify the result; that still needs a real
+install of each OS somewhere.
+
+Verified so far: macOS (dev and packaged, on this machine) and Linux —
+specifically a Steam Deck, in Desktop Mode, with a real kit (Alesis Nitro Max)
+connected over a USB-C hub and Web MIDI correctly finding it and scoring real
+hits. Windows has a cross-compiled installer that launches the app correctly
+in principle but hasn't yet been confirmed on a real Windows machine.
+
+One real-world snag from the Steam Deck test, worth knowing if you hit
+"MIDI not found" on any Linux box: a **USB-C hub under port/bandwidth
+contention** (kit + keyboard + the app's own files all sharing one hub) was
+enough to make the OS fall back to only exposing ALSA's generic virtual
+"Midi Through" loopback port instead of the kit — `lsusb` and `amidi -l`
+both showed the kit fine, but Electron's Web MIDI enumeration didn't pick it
+up until a hub port was freed. Not a code bug, but likely to recur for
+anyone testing (or eventually playing) with a hub-heavy setup — worth a line
+in store-page copy later ("if your kit isn't detected, try a different hub
+port or a direct connection").
 
 A few things worth knowing about how the wrapper works, in case you're
 touching it:
@@ -310,6 +328,29 @@ natural decay, then choking it, plus a low-pass and softened attack for the
 chick. It's a reasonable approximation, not a real recording; a kit that
 sampled all four (DrumGizmo's CrocellKit or DRSKit, both also CC-BY) is the
 upgrade path if it ever matters enough.
+
+## Accompaniment samples
+
+`public/instruments/musyngkite/` holds the guitar and bass tones the
+accompaniment feature plays back — one pre-rendered MP3 per semitone for 16
+instruments, from **MusyngKite**, a General MIDI soundfont assembled by
+**Benjamin Gleitzman** for the MIDI.js project.
+
+**Licensed CC-BY-SA 3.0 — share-alike, not just attribution.** This is
+stricter than the drum kit's plain CC-BY 4.0 above: a *derivative work* built
+from these samples has to ship under the same CC-BY-SA 3.0 terms, not just be
+credited. Using them as-is (which is all this app does — no remixing, no
+re-export) is the ordinary case share-alike licenses are fine with, but this
+is worth a proper legal read before any commercial release, not just an
+assumption. See
+[`public/instruments/README.md`](public/instruments/README.md) for the full
+notice.
+
+Committed as-is from upstream — no modifications. `npm run instrument-samples`
+re-derives them; `tools/extract-instrument-samples.mjs` documents exactly
+which 16 of the full 128-instrument GM set are included (guitar and bass
+families only, matching what `AccompanimentSampler` / the app's
+`GM_PROGRAM_TO_INSTRUMENT_KEY` table currently support).
 
 ## Known gaps
 
