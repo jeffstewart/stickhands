@@ -1,6 +1,19 @@
 :root {
   color-scheme: dark;
-  font-family: system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --bg-base: #0a0b10;
+  --bg-panel: #131622;
+  --bg-card: #181c2c;
+  --bg-hover: #22273d;
+  --border-subtle: #242a3d;
+  --border-card: #2e354e;
+  --text-main: #f1f5f9;
+  --text-muted: #8b93a7;
+  --accent-green: #3ddc84;
+  --accent-blue: #4da3ff;
+  --accent-yellow: #ffd23d;
+  --accent-orange: #ff8c3d;
+  --accent-red: #ff4757;
 }
 
 html,
@@ -10,60 +23,381 @@ body {
 
 body {
   margin: 0;
-  background: #0a0b0e;
-  color: #e0e0e0;
+  background: var(--bg-base);
+  background-image: radial-gradient(circle at 50% 0%, #151928 0%, #0a0b10 70%);
+  color: var(--text-main);
   display: flex;
   justify-content: center;
 }
 
-/* A flex column so #canvas-wrap (the only other item below #chrome) can
-   claim all height #chrome doesn't need — the note field grows to fill the
-   window instead of sitting at a fixed pixel size. */
+/* Flex column so #canvas-wrap claims remaining vertical space */
 #app {
   display: flex;
   flex-direction: column;
   width: 100%;
-  padding: 24px;
+  max-width: 1280px;
+  padding: 16px 24px;
   box-sizing: border-box;
   text-align: center;
 }
 
-/* Everything above the note field, grouped into one flex item so its own
-   buttons/paragraphs keep their normal inline wrapping instead of each
-   becoming a separate flex row. */
 #chrome {
   flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
-/* Flex rather than an inline image so the mark centres on the cap height
-   instead of sitting on the text baseline. */
-h1 {
+/* Header bar */
+#app-header {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+}
+
+.app-tagline {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* MIDI status indicator pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: #121520;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-pill:hover {
+  background: #181d2c;
+  border-color: #3b4461;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+}
+
+.status-pill.is-connected {
+  color: #d1fae5;
+  border-color: rgba(61, 220, 132, 0.3);
+  background: rgba(61, 220, 132, 0.08);
+}
+
+.status-pill.is-connected .status-dot {
+  background: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green);
+}
+
+/* Button styles */
+.btn,
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #1a1e2c;
+  color: #e2e8f0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.btn:hover,
+button:hover {
+  background: var(--bg-hover);
+  border-color: #3b4461;
+  color: #ffffff;
+}
+
+.btn:active,
+button:active {
+  transform: translateY(1px);
+}
+
+/* Primary prominent button (Start / Resume) */
+.btn-primary,
+#pause {
+  background: linear-gradient(180deg, #3ddc84 0%, #2ebd6c 100%);
+  color: #080a0f;
+  font-weight: 700;
+  border: 1px solid #3ddc84;
+  box-shadow: 0 2px 10px rgba(61, 220, 132, 0.28);
+}
+
+.btn-primary:hover,
+#pause:hover {
+  background: linear-gradient(180deg, #4aec91 0%, #35cc75 100%);
+  border-color: #4aec91;
+  color: #000;
+  box-shadow: 0 3px 14px rgba(61, 220, 132, 0.4);
+}
+
+.btn-help {
+  background: rgba(77, 163, 255, 0.1);
+  border-color: rgba(77, 163, 255, 0.35);
+  color: #8cc4ff;
+}
+
+.btn-help:hover {
+  background: rgba(77, 163, 255, 0.2);
+  border-color: var(--accent-blue);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(77, 163, 255, 0.25);
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(77, 163, 255, 0.2);
+  color: var(--accent-blue);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+/* Nav focused state from drum-stick navigation */
+.nav-focused {
+  outline: 2px solid var(--accent-green) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 10px rgba(61, 220, 132, 0.5) !important;
+}
+
+/* Controls bar */
+.controls-bar {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  letter-spacing: -0.01em;
 }
 
+.controls-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Status & track info */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.track-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  color: #cbd5e1;
+}
+
+#status {
+  margin: 0;
+  font-weight: 500;
+}
+
+#import-status {
+  margin: 0;
+}
+
+#import-status:empty {
+  display: none;
+}
+
+/* Stats container & pills */
+.stats-container {
+  display: flex;
+  justify-content: center;
+}
+
+.stats-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(15, 18, 27, 0.7);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stat-chip strong {
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.chip-perfect .chip-dot { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+.chip-early .chip-dot { background: var(--accent-yellow); box-shadow: 0 0 6px var(--accent-yellow); }
+.chip-late .chip-dot { background: var(--accent-orange); box-shadow: 0 0 6px var(--accent-orange); }
+.chip-miss .chip-dot { background: #64748b; }
+.chip-extra .chip-dot { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
+
+/* Interactive Keyboard Helper Strip */
+.keyboard-helper-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(18, 22, 33, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.strip-label {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.key-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.key-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #1e2334;
+  border: 1px solid #30374e;
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: #cbd5e1;
+  font-size: 11px;
+  transition: all 0.1s ease;
+}
+
+.key-pill.is-active {
+  background: var(--accent-green);
+  color: #080a0f;
+  border-color: #55ee98;
+  transform: translateY(-2px);
+  box-shadow: 0 0 10px rgba(61, 220, 132, 0.6);
+}
+
+.key-pill.is-active kbd {
+  background: rgba(0, 0, 0, 0.25);
+  color: #000;
+  border-color: rgba(0, 0, 0, 0.4);
+}
+
+kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  background: #0f121b;
+  border: 1px solid #363d54;
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: #94a3b8;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.strip-shortcuts {
+  color: var(--text-muted);
+  display: flex;
+  gap: 8px;
+  margin-left: 6px;
+  border-left: 1px solid var(--border-subtle);
+  padding-left: 8px;
+}
+
+/* Canvas field */
 canvas {
-  background: #111318;
-  border: 1px solid #2a2d36;
+  background: #10121a;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
   max-width: 100%;
 }
 
 #canvas-wrap {
   position: relative;
   flex: 1;
-  /* Without this a flex item's min-height defaults to its content size —
-     the canvas's own intrinsic height — which would stop it from ever
-     shrinking below that instead of tracking the available space. */
   min-height: 0;
-  margin-top: 12px;
+  margin-top: 4px;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-/* Overrides the generic canvas rule's max-width cap (ID beats element
-   selector) — this canvas fills its wrap exactly, in both directions,
-   rather than only ever shrinking below a fixed intrinsic size. */
 #chart-canvas {
   display: block;
   width: 100%;
@@ -71,6 +405,7 @@ canvas {
   max-width: none;
 }
 
+/* In-game count-in and message overlays */
 #countdown-overlay {
   position: absolute;
   inset: 0;
@@ -78,9 +413,9 @@ canvas {
   align-items: center;
   justify-content: center;
   font-size: 96px;
-  font-weight: bold;
+  font-weight: 800;
   color: #fff;
-  text-shadow: 0 0 24px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 24px rgba(0, 0, 0, 0.95);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease-out;
@@ -91,78 +426,287 @@ canvas {
 }
 
 #countdown-overlay.finished-message {
-  /* The overlay is a centring flex container, so without this its children
-     (title, score, comparison, nav hint) lay out side by side and run
-     together. Only the finished/paused variants have multiple children —
-     the count-in is a single number, so it's unaffected either way. */
   flex-direction: column;
-  gap: 2px;
-  font-size: 28px;
+  gap: 6px;
+  font-size: 32px;
   text-align: center;
   padding: 0 32px;
-  background: rgba(10, 11, 14, 0.75);
+  background: rgba(10, 12, 18, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+#countdown-overlay .score-compare {
+  font-size: 16px;
+  font-weight: 500;
+  color: #cbd5e1;
+  margin-top: 4px;
+}
+
+#countdown-overlay .ready-cta {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-top: 8px;
+  background: rgba(61, 220, 132, 0.15);
+  border: 1px solid rgba(61, 220, 132, 0.4);
+  padding: 8px 18px;
+  border-radius: 8px;
+}
+
+#countdown-overlay .ready-cta strong {
+  color: var(--accent-green);
+}
+
+#countdown-overlay .ready-cta kbd {
+  background: #1b202e;
+  border-color: #434c67;
+  color: #fff;
+  font-size: 13px;
+  padding: 2px 6px;
+}
+
+#countdown-overlay .score {
+  display: block;
+  font-size: 52px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-top: 4px;
+}
+
+#countdown-overlay .score-best {
+  color: var(--accent-green);
+  text-shadow: 0 0 20px rgba(61, 220, 132, 0.4);
 }
 
 #countdown-overlay .nav-hint {
-  font-size: 16px;
-  font-weight: normal;
-  opacity: 0.8;
-  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 14px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.nav-focused {
-  outline: 3px solid #3ddc84;
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
+/* Panels (Settings, Loop, Songs, Manage, Scores, Help) */
 .panel {
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 8px;
-  margin: 8px 0;
-  padding: 12px 16px;
+  gap: 10px;
+  margin: 6px auto;
+  padding: 16px 20px;
   max-width: 90vw;
-  border: 1px solid #2a2d36;
-  border-radius: 8px;
-  background: #15171d;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+  box-sizing: border-box;
 }
 
+.panel.hidden,
 .hidden {
-  display: none;
+  display: none !important;
 }
 
-/* .panel's own display:inline-flex outweighs .hidden on specificity alone,
-   so this override is needed to actually hide it. */
-.panel.hidden {
-  display: none;
+/* Form controls inside panels */
+.panel label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #cbd5e1;
 }
 
-/* Instructional text only — .tip is set on the "how this screen works"
-   copy, never on status output like #import-status or the .hint-inline
-   state messages, so hiding hints can't swallow an import error. */
-body.hide-hints .tip,
-body.hide-hints .nav-hint {
-  display: none;
+.panel select,
+.panel input[type="text"] {
+  background: #181c2a;
+  color: #f1f5f9;
+  border: 1px solid #2e3549;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.panel select:focus,
+.panel input[type="text"]:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 6px rgba(77, 163, 255, 0.3);
+}
+
+.panel input[type="range"] {
+  accent-color: var(--accent-green);
+  cursor: pointer;
 }
 
 .panel .hint-inline {
-  color: #8a8f9c;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
+/* Quick Start / Help Panel */
+.help-panel {
+  flex-direction: column;
+  width: 100%;
+  max-width: 840px;
+  padding: 20px 24px;
+  text-align: left;
+}
+
+.panel-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 10px;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: var(--text-muted);
+  padding: 2px 8px;
+}
+
+.btn-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 14px;
+  width: 100%;
+}
+
+.help-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-sizing: border-box;
+}
+
+.help-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help-card p {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.help-card ul {
+  margin: 0 0 8px 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.help-card li {
+  margin-bottom: 4px;
+}
+
+.help-card li strong {
+  color: #e2e8f0;
+}
+
+.card-tip {
+  font-size: 11px !important;
+  color: #94a3b8 !important;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 2px solid var(--accent-blue);
+  margin-top: 8px !important;
+}
+
+.keyboard-diagram {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 0;
+}
+
+.key-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #111420;
+  border: 1px solid #2b3248;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.stick-nav-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: #111420;
+  border: 1px solid #2b3248;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.stick-nav-grid strong {
+  color: #cbd5e1;
+}
+
+.help-footer {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 12px;
+}
+
+/* Song Library list */
 #library-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .song-item {
   text-align: left;
+  padding: 9px 12px;
+  background: #1a1e2d;
+  border-color: #2b3248;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .song-item[draggable="true"] {
@@ -173,24 +717,9 @@ body.hide-hints .nav-hint {
   opacity: 0.45;
 }
 
-/* Marks where the dragged track will land. */
 .song-item.drop-target {
-  outline: 2px solid #4da3ff;
+  outline: 2px solid var(--accent-blue);
   outline-offset: 1px;
-}
-
-.song-row {
-  display: flex;
-  gap: 6px;
-}
-
-.song-row .song-item {
-  flex: 1;
-}
-
-.song-delete {
-  color: #ff6b6b;
-  flex-shrink: 0;
 }
 
 #manage-list {
@@ -198,15 +727,16 @@ body.hide-hints .nav-hint {
   flex-direction: column;
   gap: 6px;
   width: 100%;
-  max-width: 620px;
+  max-width: 660px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .manage-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  /* Indents song rows under their folder header without a real nested-list
-     layout — the header and rows are just siblings in one flex column. */
   margin-left: 16px;
 }
 
@@ -214,10 +744,8 @@ body.hide-hints .nav-hint {
   flex: 1;
 }
 
-/* Runs/best for this track, so the library doubles as a cross-track
-   comparison without having to load each one and open Scores. */
 .manage-row .song-stats {
-  color: #8a8f9c;
+  color: var(--text-muted);
   font-size: 12px;
   min-width: 104px;
   text-align: right;
@@ -229,12 +757,18 @@ body.hide-hints .nav-hint {
 }
 
 .pin-toggle.is-pinned {
-  color: #3ddc84;
+  color: var(--accent-green);
+  border-color: rgba(61, 220, 132, 0.3);
+}
+
+.song-delete {
+  color: var(--accent-red);
+  flex-shrink: 0;
 }
 
 .song-delete.armed {
-  background: #ff6b6b;
-  color: #15171d;
+  background: var(--accent-red);
+  color: #fff;
   font-weight: bold;
 }
 
@@ -242,7 +776,8 @@ body.hide-hints .nav-hint {
   display: flex;
   gap: 6px;
   width: 100%;
-  max-width: 620px;
+  max-width: 660px;
+  margin-bottom: 6px;
 }
 
 .new-folder-row input {
@@ -253,15 +788,15 @@ body.hide-hints .nav-hint {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
-/* Visually a step up from a song row — this is a section heading, not
-   another list item. */
 .folder-toggle {
   flex: 1;
   text-align: left;
-  font-weight: bold;
+  font-weight: 700;
+  background: #20263a;
+  border-color: #353f5c;
 }
 
 .folder-rename,
@@ -279,68 +814,64 @@ body.hide-hints .nav-hint {
 }
 
 .loop-overview {
-  flex-basis: 100%; /* its own full-width row above the range sliders */
+  flex-basis: 100%;
+  border-radius: 6px;
+  margin-bottom: 8px;
 }
 
-/* Score on the track-complete overlay. Deliberately just text that appears
-   with the existing overlay — no reveal animation, no dismiss step — so a
-   restart is never gated behind waiting for a celebration to finish. */
-#countdown-overlay .score {
-  display: block;
-  font-size: 44px;
-  font-weight: bold;
-  margin-top: 4px;
-}
-
-#countdown-overlay .score-compare {
-  font-size: 15px;
-  font-weight: normal;
-  opacity: 0.85;
-  margin-top: 2px;
-}
-
-#countdown-overlay .score-best {
-  color: #3ddc84;
-}
-
-/* Forces its own flex line so the trend sits above the per-run list rather
-   than floating beside it — the canvas alone can't do that, since its
-   max-width would leave room for the list to share the row. */
+/* Scores */
 .scores-graph-row {
   flex-basis: 100%;
   display: flex;
   justify-content: center;
+  margin-bottom: 8px;
 }
 
 #scores-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   width: 100%;
-  max-width: 520px;
+  max-width: 540px;
   font-size: 13px;
+  max-height: 40vh;
+  overflow-y: auto;
 }
 
 .score-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 10px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: #1b1e26;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #191c28;
+  border: 1px solid var(--border-subtle);
   text-align: left;
 }
 
 .score-row.is-best {
-  outline: 1px solid #3ddc84;
+  border-color: rgba(61, 220, 132, 0.4);
+  background: rgba(61, 220, 132, 0.06);
 }
 
 .score-row .score-pct {
-  font-weight: bold;
-  min-width: 58px;
+  font-weight: 700;
+  min-width: 60px;
+  color: #fff;
+}
+
+.score-row.is-best .score-pct {
+  color: var(--accent-green);
 }
 
 .score-row .score-detail {
-  color: #8a8f9c;
+  color: var(--text-muted);
   flex: 1;
+}
+
+/* Hide hints setting */
+body.hide-hints .tip,
+body.hide-hints .nav-hint {
+  display: none !important;
 }

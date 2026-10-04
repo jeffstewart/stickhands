@@ -4,12 +4,24 @@ import { LANE_ORDER, type Lane } from "../engine/lanes";
 
 export type Judgment = "pending" | "perfect" | "early" | "late" | "miss";
 
-const JUDGMENT_COLOR: Record<Judgment, string> = {
+export const JUDGMENT_COLOR: Record<Judgment, string> = {
   pending: "#4da3ff",
   perfect: "#3ddc84",
   early: "#ffd23d",
   late: "#ff8c3d",
   miss: "#555555",
+};
+
+export const LANE_KEY_SHORTCUT: Partial<Record<Lane, string>> = {
+  kick: "A",
+  snare: "S",
+  hihat: "D",
+  hihatOpen: "F",
+  tom1: "G",
+  tom2: "H",
+  tomFloor: "J",
+  crash: "K",
+  ride: "L",
 };
 
 export const LANE_LABEL: Record<Lane, string> = {
@@ -37,6 +49,7 @@ export interface RendererOptions {
   // exaggerate small errors, or set 0 to pin notes to the grid and go back
   // to colour-only feedback.
   judgmentShiftScale: number;
+  showKeyShortcuts?: boolean;
 }
 
 const DEFAULT_OPTIONS: RendererOptions = {
@@ -46,6 +59,7 @@ const DEFAULT_OPTIONS: RendererOptions = {
   extraHitLifetimeMs: 400,
   loopPreviewAlpha: 0.35,
   judgmentShiftScale: 1,
+  showKeyShortcuts: true,
 };
 
 const EXTRA_HIT_COLOR = "255, 71, 87"; // rgb components; alpha applied separately for the fade
@@ -196,6 +210,20 @@ export class ChartRenderer {
     this.loopDurationMs = durationMs;
   }
 
+  private laneFlashes = new Map<Lane, { color: string; untilWallMs: number; durationMs: number }>();
+
+  flashLane(lane: Lane, color: string = "#3ddc84", durationMs = 150): void {
+    this.laneFlashes.set(lane, {
+      color,
+      untilWallMs: performance.now() + durationMs,
+      durationMs,
+    });
+  }
+
+  setKeyShortcutsVisible(visible: boolean): void {
+    this.options.showKeyShortcuts = visible;
+  }
+
   start(): void {
     const tick = () => {
       this.draw(this.clock.nowMs());
@@ -300,19 +328,88 @@ export class ChartRenderer {
 
     const laneHeight = this.fieldHeight() / this.laneOrder.length;
     const hitLineX = canvas.width * options.hitLineFrac;
+    const noteRadius = Math.min(laneHeight * 0.3, 24);
+    const nowWall = performance.now();
 
-    // lane separators + labels
-    ctx.strokeStyle = "#2a2d36";
-    ctx.fillStyle = "#8a8f9c";
-    ctx.font = "12px sans-serif";
-    ctx.textAlign = "left";
+    // lane separators + labels + hit targets + flashes
     this.laneOrder.forEach((lane, i) => {
       const y = MINIMAP_HEIGHT + i * laneHeight;
+      const centerY = y + laneHeight / 2;
+
+      // Subtle flash background if lane was hit
+      const flash = this.laneFlashes.get(lane);
+      if (flash) {
+        const remaining = flash.untilWallMs - nowWall;
+        if (remaining > 0) {
+          const alpha = (remaining / flash.durationMs) * 0.35;
+          ctx.save();
+          const grad = ctx.createLinearGradient(0, 0, hitLineX + 120, 0);
+          grad.addColorStop(0, "transparent");
+          grad.addColorStop(Math.min(1, hitLineX / (hitLineX + 120)), flash.color);
+          grad.addColorStop(1, "transparent");
+          ctx.fillStyle = grad;
+          ctx.globalAlpha = alpha;
+          ctx.fillRect(0, y, hitLineX + 120, laneHeight);
+          ctx.restore();
+        } else {
+          this.laneFlashes.delete(lane);
+        }
+      }
+
+      // Separator line
+      ctx.strokeStyle = "#222530";
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(canvas.width, y);
       ctx.stroke();
-      ctx.fillText(LANE_LABEL[lane], 8, y + laneHeight / 2 + 4);
+
+      // Lane label text
+      ctx.fillStyle = "#8a8f9c";
+      ctx.font = "12px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(LANE_LABEL[lane], 8, centerY + 4);
+
+      // Key shortcut badge
+      if (options.showKeyShortcuts !== false) {
+        const key = LANE_KEY_SHORTCUT[lane];
+        if (key) {
+          const textW = ctx.measureText(LANE_LABEL[lane]).width;
+          const badgeX = 14 + textW;
+          const badgeY = centerY - 7;
+          const badgeW = 16;
+          const badgeH = 14;
+
+          ctx.save();
+          ctx.fillStyle = "#1b1e28";
+          ctx.strokeStyle = "#363c4e";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          if (typeof ctx.roundRect === "function") {
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
+          } else {
+            ctx.rect(badgeX, badgeY, badgeW, badgeH);
+          }
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = "#cbd5e1";
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(key, badgeX + badgeW / 2, badgeY + 10);
+          ctx.restore();
+        }
+      }
+
+      // Hit target circle at the hit line
+      ctx.save();
+      const hasFlash = flash && flash.untilWallMs - nowWall > 0;
+      ctx.strokeStyle = hasFlash ? flash.color : "rgba(255, 255, 255, 0.18)";
+      ctx.lineWidth = hasFlash ? 2 : 1;
+      ctx.beginPath();
+      ctx.arc(hitLineX, centerY, noteRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     });
 
     // hit line
@@ -325,7 +422,6 @@ export class ChartRenderer {
     ctx.lineWidth = 1;
 
     // notes: spawn off the right edge, scroll left toward the hit line
-    const noteRadius = Math.min(laneHeight * 0.3, 24);
     for (const note of this.chart.notes) {
       // Nudge a played note to where it was actually struck. Only judged
       // hits carry a non-zero offset (see NoteJudgments.getOffsetMs), so

@@ -2,7 +2,7 @@ import "./style.css";
 import { DEMO_CHART } from "./engine/demoChart";
 import { sliceChart, type Chart } from "./engine/chart";
 import { PlaybackClock } from "./engine/clock";
-import { ChartRenderer, ExtraHitMarkers, LANE_LABEL, NoteJudgments } from "./render/renderer";
+import { ChartRenderer, ExtraHitMarkers, JUDGMENT_COLOR, LANE_LABEL, NoteJudgments } from "./render/renderer";
 import { WebMidiSource } from "./midi/WebMidiSource";
 import { DEFAULT_GM_ARTICULATION_MAP, DEFAULT_GM_DRUM_MAP, LANE_ORDER, type Articulation, type Lane } from "./engine/lanes";
 import {
@@ -95,6 +95,16 @@ const manageList = document.querySelector<HTMLDivElement>("#manage-list")!;
 const manageEmpty = document.querySelector<HTMLParagraphElement>("#manage-empty")!;
 const newFolderName = document.querySelector<HTMLInputElement>("#new-folder-name")!;
 const newFolderCreate = document.querySelector<HTMLButtonElement>("#new-folder-create")!;
+const openHelpButton = document.querySelector<HTMLButtonElement>("#open-help")!;
+const closeHelpButton = document.querySelector<HTMLButtonElement>("#close-help")!;
+const closeHelpBtn = document.querySelector<HTMLButtonElement>("#close-help-btn")!;
+const helpPanel = document.querySelector<HTMLDivElement>("#help-panel")!;
+const midiPill = document.querySelector<HTMLDivElement>("#midi-pill");
+const statPerfect = document.querySelector<HTMLElement>("#stat-perfect");
+const statEarly = document.querySelector<HTMLElement>("#stat-early");
+const statLate = document.querySelector<HTMLElement>("#stat-late");
+const statMiss = document.querySelector<HTMLElement>("#stat-miss");
+const statExtra = document.querySelector<HTMLElement>("#stat-extra");
 
 const clock = new PlaybackClock();
 const judgments = new NoteJudgments();
@@ -207,7 +217,9 @@ metronomeToggle.addEventListener("change", () => {
 // empty-list explanations) is never hidden, since that's information about
 // what just happened rather than instruction.
 hintsToggle.addEventListener("change", () => {
-  document.body.classList.toggle("hide-hints", hintsToggle.value === "off");
+  const isShown = hintsToggle.value === "on";
+  document.body.classList.toggle("hide-hints", !isShown);
+  renderer.setKeyShortcutsVisible(isShown);
   persistSettings();
 });
 
@@ -226,7 +238,13 @@ let lastMidiConnectionStatus = "MIDI not connected";
 function setMidiConnectionStatus(text: string): void {
   lastMidiConnectionStatus = text;
   midiStatus.textContent = text;
+  if (midiPill) {
+    const isConnected = text.toLowerCase().startsWith("connected") && !text.includes("no midi inputs found");
+    midiPill.classList.toggle("is-connected", isConnected);
+  }
 }
+
+midiPill?.addEventListener("click", () => void connectMidi());
 
 // Per-hit diagnostics only land on screen in debug mode; otherwise the line
 // keeps showing connection state, which is useful at any time.
@@ -312,6 +330,11 @@ function playDrumSound(lane: Lane, velocity: number, articulation?: Articulation
 function refreshStats(): void {
   const s = scoring.getStats();
   statsEl.textContent = `perfect: ${s.perfect} | early: ${s.early} | late: ${s.late} | miss: ${s.miss} | extra: ${s.extra}`;
+  if (statPerfect) statPerfect.textContent = String(s.perfect);
+  if (statEarly) statEarly.textContent = String(s.early);
+  if (statLate) statLate.textContent = String(s.late);
+  if (statMiss) statMiss.textContent = String(s.miss);
+  if (statExtra) statExtra.textContent = String(s.extra);
 }
 
 let trackFinished = false;
@@ -418,6 +441,7 @@ let libraryMenu: HTMLButtonElement[] = [];
 // the library this is just the Back button. Drum-nav still has somewhere
 // to land and a way out, which is what matters.
 const SCORES_MENU: MenuItem[] = [closeScoresButton];
+const HELP_MENU: MenuItem[] = [closeHelpBtn ?? closeHelpButton];
 // Rebuilt per song like libraryMenu. Load and quick-list buttons are
 // included; Delete deliberately is not, keeping destructive actions
 // mouse-only as they have been since the library was added.
@@ -440,7 +464,7 @@ let renamingFolderId: string | null = null;
 // collapsed.
 const collapsedFolderIds = new Set<string>();
 
-type MenuLevel = "main" | "settings" | "loop" | "library" | "scores" | "manage";
+type MenuLevel = "main" | "settings" | "loop" | "library" | "scores" | "manage" | "help";
 let menuLevel: MenuLevel = "main";
 let menuFocusIndex = 0;
 
@@ -460,6 +484,8 @@ function currentMenu(): MenuItem[] {
             ? SCORES_MENU
             : menuLevel === "manage"
               ? manageMenu
+              : menuLevel === "help"
+                ? HELP_MENU
           : trackFinished
             ? FINISHED_MENU
             : PAUSE_MENU;
@@ -468,7 +494,7 @@ function currentMenu(): MenuItem[] {
 
 function updateMenuFocusUI(): void {
   const active = currentMenu();
-  [...FINISHED_MENU, ...PAUSE_MENU, ...SETTINGS_MENU, ...LOOP_MENU, ...libraryMenu, ...SCORES_MENU, ...manageMenu].forEach(
+  [...FINISHED_MENU, ...PAUSE_MENU, ...SETTINGS_MENU, ...LOOP_MENU, ...libraryMenu, ...SCORES_MENU, ...manageMenu, ...HELP_MENU].forEach(
     (el) =>
     el.classList.remove("nav-focused"),
   );
@@ -483,7 +509,28 @@ function hideAllPanels(): void {
   libraryPanel.classList.add("hidden");
   scoresPanel.classList.add("hidden");
   managePanel.classList.add("hidden");
+  helpPanel.classList.add("hidden");
 }
+
+function openHelp(): void {
+  menuLevel = "help";
+  menuFocusIndex = 0;
+  hideAllPanels();
+  helpPanel.classList.remove("hidden");
+  updateMenuFocusUI();
+}
+
+function closeHelp(): void {
+  menuLevel = "main";
+  menuFocusIndex = 0;
+  helpPanel.classList.add("hidden");
+  updateMenuFocusUI();
+  localStorage.setItem("stickhands.guide_seen", "true");
+}
+
+openHelpButton.addEventListener("click", openHelp);
+closeHelpButton.addEventListener("click", closeHelp);
+closeHelpBtn?.addEventListener("click", closeHelp);
 
 function openSettings(): void {
   menuLevel = "settings";
@@ -1359,10 +1406,9 @@ function armTrack(): void {
 function showReadyOverlay(): void {
   countdownOverlay.innerHTML =
     "Ready" +
-    // Not a .tip: with hints hidden this is the only thing telling you the
-    // track is waiting on you rather than broken.
-    `<div class="score-compare">${fullChart.title} — press Start to begin</div>` +
-    '<div class="nav-hint">Crash=Up · Kick=Down · Tom1=Left · Tom2=Right · Floor Tom=Enter · Ride=Back</div>';
+    `<div class="score-compare">${fullChart.title} — ${fullChart.bpm} BPM</div>` +
+    '<div class="ready-cta">Press <strong>Start</strong>, tap <kbd>Space</kbd>, or hit <strong>Floor Tom [J]</strong> to begin</div>' +
+    '<div class="nav-hint">Keys A-L to play · Hands-free stick navigation: Crash=Up · Kick=Down · Tom1/2=Left/Right · Floor Tom=Enter · Ride=Back</div>';
   countdownOverlay.classList.add("visible", "finished-message");
   menuLevel = "main";
   menuFocusIndex = PAUSE_MENU_DEFAULT_INDEX; // Start is what Enter should hit
@@ -1483,7 +1529,9 @@ function showFinishedOverlay(): void {
 function showPausedOverlay(reason?: string): void {
   const title = reason ? `Paused — ${reason}` : "Paused";
   countdownOverlay.innerHTML =
-    title + '<div class="nav-hint">Crash=Up · Kick=Down · Tom1=Left · Tom2=Right · Floor Tom=Enter · Ride=Back</div>';
+    title +
+    '<div class="ready-cta">Press <strong>Resume</strong>, tap <kbd>Space</kbd>, or hit <strong>Floor Tom [J]</strong> to continue</div>' +
+    '<div class="nav-hint">Crash=Up · Kick=Down · Tom1=Left · Tom2=Right · Floor Tom=Enter · Ride=Back</div>';
   countdownOverlay.classList.add("visible", "finished-message");
   menuLevel = "main";
   menuFocusIndex = PAUSE_MENU_DEFAULT_INDEX;
@@ -1776,6 +1824,10 @@ midiFileInput.addEventListener("change", async () => {
 
 loadTrack(DEMO_CHART, null, false);
 
+if (!localStorage.getItem("stickhands.guide_seen")) {
+  openHelp();
+}
+
 // Fired async, not awaited — the demo chart above already plays immediately
 // regardless of library state. This only needs to finish before/while the
 // user might open Songs; if either panel is already open when it resolves,
@@ -1845,6 +1897,11 @@ midi.onNoteOn((event) => {
   handleLaneHit(lane, event.velocity, articulation, () => {
     outcome = scoring.handleMidiNote(event, clock);
   });
+  if (lane && outcome) {
+    const o = outcome as HitOutcome;
+    const color = o.judgment === "extra" ? "#ff4757" : JUDGMENT_COLOR[o.judgment];
+    renderer.flashLane(lane, color);
+  }
   // Articulation is surfaced here too — it's the quickest way to tell whether
   // a given pedal position/pad actually sends a distinct note on this kit.
   const laneText = lane ? `-> ${lane}${articulation ? ` (${articulation})` : ""}` : "(unmapped)";
@@ -1875,8 +1932,87 @@ for (const [note, lane] of Object.entries(DEFAULT_GM_DRUM_MAP)) {
 
 window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
+
+  const isTextInput =
+    document.activeElement instanceof HTMLInputElement &&
+    (document.activeElement.type === "text" || !document.activeElement.type);
+
+  if (isTextInput) return;
+
+  // Spacebar = toggle pause / start
+  if (e.code === "Space" || e.key === " ") {
+    e.preventDefault();
+    togglePause();
+    return;
+  }
+
+  // Escape = close active panels or pause
+  if (e.key === "Escape") {
+    e.preventDefault();
+    if (menuLevel !== "main") {
+      hideAllPanels();
+      menuLevel = "main";
+      updateMenuFocusUI();
+    } else if (!clock.isPaused() && !trackFinished) {
+      pauseTrack();
+    }
+    return;
+  }
+
+  // ? or h = toggle Quick Start / Help guide
+  if (e.key === "?" || e.key === "h" || e.key === "H") {
+    if (menuActive()) {
+      e.preventDefault();
+      if (menuLevel === "help") closeHelp();
+      else openHelp();
+      return;
+    }
+  }
+
+  // When paused or finished, support Arrow keys + Enter for navigation
+  if (menuActive()) {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      handleNavDirection("up");
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      handleNavDirection("down");
+      return;
+    }
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      handleNavDirection("left");
+      return;
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      handleNavDirection("right");
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleNavDirection("enter");
+      return;
+    }
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      handleNavDirection("back");
+      return;
+    }
+  }
+
   const hit = KEY_TO_HIT[e.key.toLowerCase()];
   if (!hit) return;
+
+  // Visual feedback on keyboard strip
+  const keyPill = document.querySelector<HTMLElement>(`.key-pill[data-key="${e.key.toLowerCase()}"]`);
+  if (keyPill) {
+    keyPill.classList.add("is-active");
+    setTimeout(() => keyPill.classList.remove("is-active"), 120);
+  }
+
   const note = LANE_TO_NOTE[hit.lane];
   if (note === undefined) return;
   // Shift = a "hard" hit, plain key = medium — enough to test the sample
@@ -1887,6 +2023,11 @@ window.addEventListener("keydown", (e) => {
   handleLaneHit(hit.lane, velocity, hit.articulation, () => {
     outcome = scoring.handleMidiNote(event, clock);
   });
+  if (hit.lane && outcome) {
+    const o = outcome as HitOutcome;
+    const color = o.judgment === "extra" ? "#ff4757" : JUDGMENT_COLOR[o.judgment];
+    renderer.flashLane(hit.lane, color);
+  }
   const artText = hit.articulation ? ` (${hit.articulation})` : "";
   showHitReadout(`(keyboard) -> ${hit.lane}${artText}${formatHitOutcome(outcome)}`);
 });
