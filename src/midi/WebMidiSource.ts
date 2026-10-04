@@ -15,13 +15,24 @@ const NOTE_OFF = 0x8;
 // drum-nav, where each delivery independently dispatches a menu step.
 // Dropping a repeat of the same note within this window filters that out
 // without touching genuinely fast consecutive real hits, which don't arrive
-// this close together.
 const DEDUPE_WINDOW_MS = 15;
 
 export class WebMidiSource implements MidiSource {
   private handlers: MidiNoteHandler[] = [];
+  private stateChangeHandlers: (() => void)[] = [];
   private access: MIDIAccess | null = null;
   private lastNoteAtMs = new Map<number, number>();
+
+  isConnected(): boolean {
+    return this.access !== null;
+  }
+
+  onStateChange(handler: () => void): () => void {
+    this.stateChangeHandlers.push(handler);
+    return () => {
+      this.stateChangeHandlers = this.stateChangeHandlers.filter((h) => h !== handler);
+    };
+  }
 
   async connect(): Promise<void> {
     if (!navigator.requestMIDIAccess) {
@@ -29,7 +40,10 @@ export class WebMidiSource implements MidiSource {
     }
     this.access = await navigator.requestMIDIAccess();
     this.attachToInputs();
-    this.access.onstatechange = () => this.attachToInputs();
+    this.access.onstatechange = () => {
+      this.attachToInputs();
+      for (const h of this.stateChangeHandlers) h();
+    };
   }
 
   onNoteOn(handler: MidiNoteHandler): () => void {

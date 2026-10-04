@@ -91,40 +91,42 @@ body {
   gap: 10px;
 }
 
-/* MIDI status indicator pill */
+/* MIDI status indicator pill / button */
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 5px 12px;
   font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: #121520;
-  border: 1px solid var(--border-subtle);
+  font-weight: 600;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.35);
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .status-pill:hover {
-  background: #181d2c;
-  border-color: #3b4461;
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--accent-blue);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #64748b;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  background: #60a5fa;
+  box-shadow: 0 0 4px rgba(96, 165, 250, 0.6);
   transition: all 0.2s ease;
 }
 
 .status-pill.is-connected {
   color: #d1fae5;
-  border-color: rgba(61, 220, 132, 0.3);
-  background: rgba(61, 220, 132, 0.08);
+  border-color: rgba(61, 220, 132, 0.35);
+  background: rgba(61, 220, 132, 0.1);
 }
 
 .status-pill.is-connected .status-dot {

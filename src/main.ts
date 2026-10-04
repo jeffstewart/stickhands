@@ -233,7 +233,7 @@ debugToggle.addEventListener("change", () => {
   if (!debugReadout) midiStatus.textContent = lastMidiConnectionStatus;
   persistSettings();
 });
-let lastMidiConnectionStatus = "MIDI not connected";
+let lastMidiConnectionStatus = "Connect MIDI";
 
 function setMidiConnectionStatus(text: string): void {
   lastMidiConnectionStatus = text;
@@ -241,6 +241,7 @@ function setMidiConnectionStatus(text: string): void {
   if (midiPill) {
     const isConnected = text.toLowerCase().startsWith("connected") && !text.includes("no midi inputs found");
     midiPill.classList.toggle("is-connected", isConnected);
+    midiPill.title = isConnected ? `MIDI Connected: ${text}` : "Click to connect MIDI drum kit";
   }
 }
 
@@ -1866,6 +1867,17 @@ async function connectMidi(): Promise<void> {
 }
 
 connectButton.addEventListener("click", connectMidi);
+
+midi.onStateChange(() => {
+  const inputs = midi.listInputNames();
+  if (inputs.length > 0) {
+    setMidiConnectionStatus(`Connected. Inputs: ${inputs.join(", ")}`);
+    connectButton.classList.add("hidden");
+  } else {
+    setMidiConnectionStatus("Connected, but no MIDI inputs found");
+    connectButton.classList.remove("hidden");
+  }
+});
 
 // Try connecting on load, not just on click — the whole point of drum-pad
 // navigation is not needing the mouse, so requiring a click just to get MIDI
