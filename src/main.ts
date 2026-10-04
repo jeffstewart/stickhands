@@ -397,20 +397,20 @@ type MenuItem = HTMLSelectElement | HTMLButtonElement | HTMLInputElement;
 // direction mapping itself is correct.
 const FINISHED_MENU: HTMLButtonElement[] = [
   restartButton,
-  openSettingsButton,
-  openLoopButton,
-  openLibraryButton,
-  openScoresButton,
   nextTrackButton,
+  openLibraryButton,
+  openLoopButton,
+  openScoresButton,
+  openSettingsButton,
 ];
 const PAUSE_MENU: HTMLButtonElement[] = [
-  restartButton,
   pauseButton,
-  openSettingsButton,
-  openLoopButton,
-  openLibraryButton,
-  openScoresButton,
+  restartButton,
   nextTrackButton,
+  openLibraryButton,
+  openLoopButton,
+  openScoresButton,
+  openSettingsButton,
 ];
 const PAUSE_MENU_DEFAULT_INDEX = PAUSE_MENU.indexOf(pauseButton); // Enter still resumes immediately by default
 const SETTINGS_MENU: MenuItem[] = [
@@ -420,6 +420,7 @@ const SETTINGS_MENU: MenuItem[] = [
   pausePadSelect,
   metronomeToggle,
   padSoundToggle,
+  accompanimentToggle,
   hintsToggle,
   debugToggle,
   connectButton,
